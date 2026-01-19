@@ -117,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import type { Order, QualityCheck, QualityCheckInsert } from "./services/db";
 import { createQualityCheck, getQualityChecksForOrder } from "./services/db";
 
