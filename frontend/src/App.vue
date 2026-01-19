@@ -1,94 +1,97 @@
-<script setup lang="ts">
-import { ref, computed } from "vue";
-import KlantenPage from "./KlantenPage.vue";
-import OrdersNewPage from "./OrdersNewPage.vue";
-import OrdersOverview from "./OrdersOverview.vue";
-import OrderDetailPage from "./OrderDetailPage.vue";
-import PakbonPage from "./PakbonPage.vue";
-import EtikettenPage from "./EtikettenPage.vue";
-import type { Order } from "./services/db";
-
-type Page = "klanten" | "order-nieuw" | "orders" | "pakbon" | "order-detail" | "etiketten";
-
-const currentPage = ref<Page>("klanten");
-const menuOpen = ref(false);
-const selectedOrder = ref<Order | null>(null);
-
-function goTo(page: Page) {
-  currentPage.value = page;
-  menuOpen.value = false;
-}
-
-function openOrderDetail(order: Order) {
-  selectedOrder.value = order;
-  currentPage.value = "order-detail";
-  menuOpen.value = false;
-}
-
-const pageTitle = computed(() => {
-  switch (currentPage.value) {
-    case "klanten": return "Klanten";
-    case "order-nieuw": return "Nieuwe order";
-    case "orders": return "Orders overzicht";
-    case "pakbon": return "Pakbon maken";
-    case "order-detail": return "Orderdetails";
-    case "etiketten": return "Etiketten";
-    default: return "";
-  }
-});
-
-function handleOrderUpdated(order: Order) {
-  selectedOrder.value = order;
-}
-
-function handleOrderDeleted() {
-  selectedOrder.value = null;
-  currentPage.value = "orders";
-}
-</script>
-
 <template>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="topbar-inner">
-        <button class="hamburger" @click="menuOpen = !menuOpen">
-          <span></span><span></span><span></span>
-        </button>
+  <LoginPage v-if="!session" />
 
-        <div class="logo">Orderprogramma</div>
+  <div v-else>
+    <div v-if="checkingRole">Role check...</div>
 
-        <div class="current-page">{{ pageTitle }}</div>
-      </div>
-    </header>
+    <div v-else-if="!isAdminOrOwner">
+      <p>Geen toegang (alleen admin/owner).</p>
+      <button @click="logout">Uitloggen</button>
+    </div>
 
-    <div v-if="menuOpen" class="overlay" @click="menuOpen = false"></div>
+    <div v-else>
+      <!-- JOUW APP CONTENT -->
+      <nav>
+        <button @click="page = 'orders'">Orders</button>
+        <button @click="page = 'new'">Nieuwe order</button>
+        <button @click="page = 'klanten'">Klanten</button>
+        <button @click="page = 'etiketten'">Etiketten</button>
+        <button @click="page = 'pakbon'">Pakbon</button>
+        <button @click="logout">Uitloggen</button>
+      </nav>
 
-    <nav class="side-menu" :class="{ open: menuOpen }">
-      <h3>Menu</h3>
-      <button class="menu-item" :class="{ active: currentPage === 'klanten' }" @click="goTo('klanten')">Klanten</button>
-      <button class="menu-item" :class="{ active: currentPage === 'order-nieuw' }" @click="goTo('order-nieuw')">Nieuwe order</button>
-      <button class="menu-item" :class="{ active: currentPage === 'orders' }" @click="goTo('orders')">Orders overzicht</button>
-      <button class="menu-item" :class="{ active: currentPage === 'pakbon' }" @click="goTo('pakbon')">Pakbon</button>
-      <button class="menu-item" :class="{ active: currentPage === 'etiketten' }" @click="goTo('etiketten')">Etiketten</button>
-    </nav>
-
-    <main class="main-content">
-      <KlantenPage v-if="currentPage === 'klanten'" />
-      <OrdersNewPage v-else-if="currentPage === 'order-nieuw'" />
-      <OrdersOverview v-else-if="currentPage === 'orders'" @open-order="openOrderDetail" />
-      <PakbonPage v-else-if="currentPage === 'pakbon'" />
-      <EtikettenPage v-else-if="currentPage === 'etiketten'" />
-
-      <OrderDetailPage
-        v-else-if="currentPage === 'order-detail'"
-        :order="selectedOrder"
-        @back="goTo('orders')"
-        @updated="handleOrderUpdated"
-        @deleted="handleOrderDeleted"
-      />
-    </main>
+      <OrdersOverview v-if="page === 'orders'" />
+      <OrdersNewPage v-else-if="page === 'new'" />
+      <KlantenPage v-else-if="page === 'klanten'" />
+      <EtikettenPage v-else-if="page === 'etiketten'" />
+      <PakbonPage v-else-if="page === 'pakbon'" />
+    </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { supabase } from "./lib/supabase";
+import LoginPage from "./LoginPage.vue";
+
+import OrdersOverview from "./OrdersOverview.vue";
+import OrdersNewPage from "./OrdersNewPage.vue";
+import KlantenPage from "./KlantenPage.vue";
+import EtikettenPage from "./EtikettenPage.vue";
+import PakbonPage from "./PakbonPage.vue";
+
+type Role = "owner" | "admin" | "user" | string;
+
+const session = ref<any>(null);
+const role = ref<Role | null>(null);
+const checkingRole = ref(false);
+
+const page = ref<"orders" | "new" | "klanten" | "etiketten" | "pakbon">("orders");
+
+const isAdminOrOwner = (() => {
+  const r = role.value;
+  return r === "owner" || r === "admin";
+});
+
+async function fetchRole() {
+  if (!session.value?.user?.id) {
+    role.value = null;
+    return;
+  }
+
+  checkingRole.value = true;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.value.user.id)
+      .single();
+
+    if (error) throw error;
+    role.value = data?.role ?? null;
+  } finally {
+    checkingRole.value = false;
+  }
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+}
+
+onMounted(async () => {
+  const { data } = await supabase.auth.getSession();
+  session.value = data.session;
+
+  if (session.value) await fetchRole();
+
+  supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    session.value = newSession;
+    role.value = null;
+    if (session.value) await fetchRole();
+  });
+});
+</script>
+
 
 <style scoped>
 .app-shell {
