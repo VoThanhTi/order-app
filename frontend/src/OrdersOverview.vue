@@ -1,3 +1,4 @@
+<!-- src/OrdersOverview.vue -->
 <template>
   <div class="page">
     <h1>Orders & productoverzicht</h1>
@@ -7,6 +8,7 @@
 
       <div v-if="loading">Laden...</div>
       <div v-else-if="orders.length === 0">Nog geen orders.</div>
+
       <div v-else class="table-wrapper">
         <table>
           <thead>
@@ -25,59 +27,43 @@
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
-              <tr
-                v-for="order in orders"
-                :key="order.order_id"
-                :class="getRowClass(order)"
-                @click="selectOrder(order)"
-              >
 
+          <tbody>
+            <tr
+              v-for="order in orders"
+              :key="order.order_id"
+              :class="getRowClass(order)"
+              @click="selectOrder(order)"
+            >
               <td>{{ order.order_id }}</td>
-              <td>{{ order.interne_referentie }}</td>
+              <td>{{ order.interne_referentie ?? "-" }}</td>
               <td>{{ klantNaam(order.klant_id) }}</td>
-              <td>{{ order.klant_order_nummer || "-" }}</td>
-              <td>{{ order.klant_artikel_nummer || "-" }}</td>
-              <td>{{ order.product_naam }}</td>
-              <td>{{ order.formaat }}</td>
+              <td>{{ order.klant_order_nummer ?? "-" }}</td>
+              <td>{{ order.klant_artikel_nummer ?? "-" }}</td>
+              <td>{{ order.product_naam ?? "-" }}</td>
+              <td>{{ order.formaat ?? "-" }}</td>
               <td>{{ formatDate(order.order_datum) }}</td>
               <td>{{ formatDate(order.geplande_lever_datum) }}</td>
 
               <!-- leverstatus badge -->
               <td>
-                <span
-                  :class="['status-pill', getDeliveryClass(order)]"
-                >
+                <span :class="['status-pill', getDeliveryClass(order)]">
                   {{ getDeliveryLabel(order) }}
                 </span>
               </td>
 
               <!-- dozen geproduceerd: inline +/- -->
               <td class="produced-cell" @click.stop>
-                <button
-                  class="circle-btn"
-                  type="button"
-                  @click.stop="changeProducedBoxes(order, -1)"
-                >
-                  –
-                </button>
-                <span class="produced-text">
-                  {{ getProducedBoxesText(order) }}
-                </span>
-                <button
-                  class="circle-btn"
-                  type="button"
-                  @click.stop="changeProducedBoxes(order, +1)"
-                >
-                  +
-                </button>
+                <button class="circle-btn" type="button" @click.stop="changeProducedBoxes(order, -1)">–</button>
+                <span class="produced-text">{{ getProducedBoxesText(order) }}</span>
+                <button class="circle-btn" type="button" @click.stop="changeProducedBoxes(order, +1)">+</button>
               </td>
 
               <!-- status: inline select -->
               <td class="status-cell" @click.stop>
                 <select
                   class="status-select"
-                  :value="order.status"
+                  :value="normalizedStatus(order.status)"
                   @change="onStatusSelect(order, $event)"
                 >
                   <option value="OPEN">OPEN</option>
@@ -98,70 +84,29 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-
-const API_BASE = "http://localhost:3000";
-const STORAGE_ORDERS_KEY = "orderapp_orders";
-
-export type OrderStatus = "OPEN" | "IN_PRODUCTIE" | "KLAAR" | "GEANNULEERD";
-
-export interface Order {
-  order_id: number;
-  interne_referentie: string;
-  klant_order_nummer: string;
-  klant_artikel_nummer: string;
-  klant_id: number;
-  order_datum: string;
-  geplande_lever_datum: string;
-  product_naam: string;
-  formaat: string;
-  status: OrderStatus;
-
-  // dozen / voortgang
-  stuks_per_doos?: number;
-  totaal_aantal_stuks?: number;
-  geproduceerde_dozen?: number;
-
-  // extra velden (voor detailpagina)
-  totaal_aantal_meters?: number;
-  materiaal?: string;
-  dikte_micron?: number;
-  bedrukking?: string;
-  beugel_maat?: string;
-  beugel_vorm?: string;
-  perforatie_type?: string;
-  pallet_type?: string;
-  totaal_per_pallet?: number;
-  rollen_gewicht_gram?: number;
-  rows_per_rol?: number;
-  etiket_format?: string;
-  rol_lengte?: number;
-  notities?: string;
-}
-
-interface Klant {
-  klant_id: number;
-  naam: string;
-}
+import type { Order, Klant, OrderStatus } from "./services/db";
+import { getOrders, getKlanten, updateOrder } from "./services/db";
 
 const emit = defineEmits<{
   (e: "open-order", order: Order): void;
 }>();
 
-const orders = ref<Order[]>(loadOrdersFromStorage());
+const orders = ref<Order[]>([]);
 const klanten = ref<Klant[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
 /* ===== UTIL ===== */
-
-function formatDate(value: string) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "-";
-  // later kun je dit netjes naar NL-formaat omzetten
+  const parts = value.split("-");
+  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
   return value;
 }
 
-function klantNaam(id: number) {
-  const k = klanten.value.find((klant) => klant.klant_id === id);
+function klantNaam(id: number | null) {
+  if (!id) return "-";
+  const k = klanten.value.find((x) => x.klant_id === id);
   return k ? k.naam : `#${id}`;
 }
 
@@ -169,27 +114,32 @@ function selectOrder(order: Order) {
   emit("open-order", order);
 }
 
-/* ===== LEVERSTATUS (kleur op basis van vandaag) ===== */
+/* ===== STATUS NORMALIZE ===== */
+/** jouw Order.status is: OrderStatus | string | null */
+function normalizedStatus(status: Order["status"]): OrderStatus {
+  if (status === "OPEN" || status === "IN_PRODUCTIE" || status === "KLAAR" || status === "GEANNULEERD") {
+    return status;
+  }
+  return "OPEN";
+}
 
+/* ===== LEVERSTATUS ===== */
 function stripTime(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-// werkdagen (ma–vr) van vandaag t/m leverdatum
 function workingDaysUntil(delivery: Date): number {
   const today = stripTime(new Date());
   const end = stripTime(delivery);
 
-  if (end < today) return -1; // te laat
+  if (end < today) return -1;
 
   let days = 0;
   const d = new Date(today);
 
   while (d <= end) {
-    const day = d.getDay(); // 0 = zo, 6 = za
-    if (day !== 0 && day !== 6) {
-      days++;
-    }
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) days++;
     d.setDate(d.getDate() + 1);
   }
 
@@ -197,43 +147,38 @@ function workingDaysUntil(delivery: Date): number {
 }
 
 function getDeliveryClass(order: Order): string {
-  // speciale kleuren voor klaar / geannuleerd
-  if (order.status === "KLAAR") return "status-done";
-  if (order.status === "GEANNULEERD") return "status-cancelled";
+  const st = normalizedStatus(order.status);
+  if (st === "KLAAR") return "status-done";
+  if (st === "GEANNULEERD") return "status-cancelled";
 
-  const delivery = new Date(order.geplande_lever_datum);
+  const delivery = new Date(order.geplande_lever_datum || "");
   if (isNaN(delivery.getTime())) return "status-neutral";
 
   const today = stripTime(new Date());
   const end = stripTime(delivery);
 
-  if (end < today) {
-    return "status-red";
-  }
+  if (end < today) return "status-red";
 
   const workdays = workingDaysUntil(delivery);
-
   if (workdays >= 5) return "status-green";
   if (workdays >= 3) return "status-yellow";
-  return "status-orange"; // 1–2 werkdagen
+  return "status-orange";
 }
 
 function getDeliveryLabel(order: Order): string {
-  if (order.status === "KLAAR") return "Klaar";
-  if (order.status === "GEANNULEERD") return "Geannuleerd";
+  const st = normalizedStatus(order.status);
+  if (st === "KLAAR") return "Klaar";
+  if (st === "GEANNULEERD") return "Geannuleerd";
 
-  const delivery = new Date(order.geplande_lever_datum);
+  const delivery = new Date(order.geplande_lever_datum || "");
   if (isNaN(delivery.getTime())) return "Geen datum";
 
   const today = stripTime(new Date());
   const end = stripTime(delivery);
 
-  if (end < today) {
-    return "Te laat";
-  }
+  if (end < today) return "Te laat";
 
   const workdays = workingDaysUntil(delivery);
-
   if (workdays === 1) return "1 werkdag";
   if (workdays === 2) return "2 werkdagen";
   if (workdays === 3) return "3 werkdagen";
@@ -243,29 +188,23 @@ function getDeliveryLabel(order: Order): string {
   return "Vandaag";
 }
 
-/* ===== DOZEN GEPRODUCEERD ===== */
-
+/* ===== DOZEN ===== */
 function totalBoxes(order: Order): number | null {
-  if (!order.stuks_per_doos || !order.totaal_aantal_stuks) return null;
+  if (order.stuks_per_doos == null || order.totaal_aantal_stuks == null) return null;
+  if (order.stuks_per_doos <= 0 || order.totaal_aantal_stuks <= 0) return null;
   return Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos);
 }
 
 function getProducedBoxesText(order: Order): string {
   const total = totalBoxes(order);
   const produced = order.geproduceerde_dozen ?? 0;
-
-  if (total == null) {
-    return produced.toString();
-  }
-
-  return `${produced} / ${total}`;
+  return total == null ? produced.toString() : `${produced} / ${total}`;
 }
 
 async function changeProducedBoxes(order: Order, delta: number) {
   const index = orders.value.findIndex((o) => o.order_id === order.order_id);
   if (index === -1) return;
 
-  // expliciet checken → daarna is current een echte Order
   const current = orders.value[index];
   if (!current) return;
 
@@ -276,26 +215,16 @@ async function changeProducedBoxes(order: Order, delta: number) {
   if (newValue < 0) newValue = 0;
   if (total != null && newValue > total) newValue = total;
 
-  const updated: Order = {
-    ...(current as Order),      // cast zodat spread niet “partial” wordt
-    geproduceerde_dozen: newValue,
-  };
-
-  // optimistische update + localStorage
-  orders.value.splice(index, 1, updated);
-  saveOrdersToStorage(orders.value);
+  // optimistic
+  orders.value.splice(index, 1, { ...current, geproduceerde_dozen: newValue });
 
   try {
-    const res = await fetch(`${API_BASE}/orders/${order.order_id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ geproduceerde_dozen: newValue }),
-    });
-    if (!res.ok) {
-      console.warn("Backend update failed voor geproduceerde_dozen");
-    }
+    const updated = await updateOrder(order.order_id, { geproduceerde_dozen: newValue });
+    orders.value.splice(index, 1, updated);
   } catch (e) {
-    console.warn("Backend niet bereikbaar bij update geproduceerde_dozen", e);
+    // revert
+    orders.value.splice(index, 1, current);
+    console.warn(e);
   }
 }
 
@@ -304,102 +233,55 @@ async function changeStatus(order: Order, newStatus: OrderStatus) {
   if (index === -1) return;
 
   const current = orders.value[index];
-  if (!current) return; // zelfde narrowing
+  if (!current) return;
 
-  if (current.status === newStatus) return;
+  const curStatus = normalizedStatus(current.status);
+  if (curStatus === newStatus) return;
 
-  const updated: Order = {
-    ...(current as Order),
-    status: newStatus,
-  };
-
-  orders.value.splice(index, 1, updated);
-  saveOrdersToStorage(orders.value);
+  // optimistic
+  orders.value.splice(index, 1, { ...current, status: newStatus });
 
   try {
-    const res = await fetch(`${API_BASE}/orders/${order.order_id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    if (!res.ok) {
-      console.warn("Backend update failed voor status");
-    }
+    const updated = await updateOrder(order.order_id, { status: newStatus });
+    orders.value.splice(index, 1, updated);
   } catch (e) {
-    console.warn("Backend niet bereikbaar bij update status", e);
+    // revert
+    orders.value.splice(index, 1, current);
+    console.warn(e);
   }
 }
 
 function onStatusSelect(order: Order, event: Event) {
   const target = event.target as HTMLSelectElement | null;
   if (!target) return;
-
-  const value = target.value as OrderStatus;
-  changeStatus(order, value);
+  changeStatus(order, target.value as OrderStatus);
 }
 
-
-/* ===== DATA LADEN + LOCALSTORAGE ===== */
-
-function loadOrdersFromStorage(): Order[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_ORDERS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Order[];
-  } catch {
-    return [];
-  }
-}
-
-function saveOrdersToStorage(list: Order[]) {
-  try {
-    localStorage.setItem(STORAGE_ORDERS_KEY, JSON.stringify(list));
-  } catch (err) {
-    console.error("Kon orders niet in localStorage opslaan", err);
-  }
-}
-
+/* ===== LOAD ===== */
 async function loadData() {
   loading.value = true;
   error.value = null;
 
   try {
-    const [ordersRes, klantenRes] = await Promise.all([
-      fetch(`${API_BASE}/orders`),
-      fetch(`${API_BASE}/klanten`),
-    ]);
-
-    if (ordersRes.ok) {
-      const data: Order[] = await ordersRes.json();
-      orders.value = data;
-      saveOrdersToStorage(orders.value);
-    }
-
-    if (klantenRes.ok) {
-      klanten.value = await klantenRes.json();
-    }
+    const [o, k] = await Promise.all([getOrders(), getKlanten()]);
+    orders.value = o;
+    klanten.value = k;
   } catch (e: any) {
-    console.warn("Backend niet bereikbaar, gebruik localStorage-data", e);
-    error.value = null; // we hebben al localStorage, dus geen harde error tonen
+    console.error(e);
+    error.value = e?.message ?? "Kon data niet laden";
   } finally {
     loading.value = false;
   }
 }
 
-onMounted(() => {
-  loadData();
-});
+onMounted(loadData);
 
 function getRowClass(order: Order): string {
-  if (order.status === "KLAAR") {
-    return "row-done";
-  }
-  if (order.status === "GEANNULEERD") {
-    return "row-cancelled";
-  }
+  const st = normalizedStatus(order.status);
+  if (st === "KLAAR") return "row-done";
+  if (st === "GEANNULEERD") return "row-cancelled";
   return "";
 }
-
 </script>
 
 <style scoped>
@@ -457,35 +339,30 @@ tr {
   cursor: pointer;
 }
 
-/* Hele rij kleur voor KLAAR / GEANNULEERD */
-
 .row-done {
-  background: #dcfce7; /* licht groen */
+  background: #dcfce7;
 }
-
 .row-done:hover {
-  background: #bbf7d0; /* iets donkerder groen bij hover */
+  background: #bbf7d0;
 }
 
 .row-cancelled {
-  background: #fee2e2; /* licht rood */
+  background: #fee2e2;
 }
-
 .row-cancelled:hover {
-  background: #fecaca; /* iets donkerder rood bij hover */
+  background: #fecaca;
 }
 
 .status-done {
-  background: #dbeafe;  /* licht blauw */
-  color: #1d4ed8;       /* blauw tekst */
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-cancelled {
-  background: #e5e7eb;  /* licht grijs */
-  color: #6b7280;       /* donker grijs */
+  background: #e5e7eb;
+  color: #6b7280;
 }
 
-/* leverstatus badge */
 .status-pill {
   display: inline-block;
   padding: 0.15rem 0.6rem;
@@ -519,8 +396,6 @@ tr {
   color: #374151;
 }
 
-/* dozen-quick-edit */
-
 .produced-cell {
   display: flex;
   align-items: center;
@@ -548,8 +423,6 @@ tr {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-
-/* status select */
 
 .status-cell {
   min-width: 140px;

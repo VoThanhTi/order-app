@@ -2,12 +2,13 @@
 import { ref, computed } from "vue";
 import KlantenPage from "./KlantenPage.vue";
 import OrdersNewPage from "./OrdersNewPage.vue";
-import OrdersOverview, { type Order } from "./OrdersOverview.vue";
+import OrdersOverview from "./OrdersOverview.vue";
 import OrderDetailPage from "./OrderDetailPage.vue";
 import PakbonPage from "./PakbonPage.vue";
 import EtikettenPage from "./EtikettenPage.vue";
+import type { Order } from "./services/db";
 
-type Page = "klanten" | "order-nieuw" | "orders" | "pakbon" | "order-detail"  | "etiketten";
+type Page = "klanten" | "order-nieuw" | "orders" | "pakbon" | "order-detail" | "etiketten";
 
 const currentPage = ref<Page>("klanten");
 const menuOpen = ref(false);
@@ -26,23 +27,15 @@ function openOrderDetail(order: Order) {
 
 const pageTitle = computed(() => {
   switch (currentPage.value) {
-    case "klanten":
-      return "Klanten";
-    case "order-nieuw":
-      return "Nieuwe order";
-    case "orders":
-      return "Orders overzicht";
-    case "pakbon":
-      return "Pakbon maken";
-    case "order-detail":
-      return "Orderdetails";
-    case "etiketten":
-      return "Etiketten";
-    default:
-      return "";
+    case "klanten": return "Klanten";
+    case "order-nieuw": return "Nieuwe order";
+    case "orders": return "Orders overzicht";
+    case "pakbon": return "Pakbon maken";
+    case "order-detail": return "Orderdetails";
+    case "etiketten": return "Etiketten";
+    default: return "";
   }
 });
-
 
 function handleOrderUpdated(order: Order) {
   selectedOrder.value = order;
@@ -52,90 +45,40 @@ function handleOrderDeleted() {
   selectedOrder.value = null;
   currentPage.value = "orders";
 }
-
 </script>
 
 <template>
   <div class="app-shell">
-    <!-- Topbar -->
     <header class="topbar">
       <div class="topbar-inner">
-        <!-- links: hamburger -->
         <button class="hamburger" @click="menuOpen = !menuOpen">
-          <span></span>
-          <span></span>
-          <span></span>
+          <span></span><span></span><span></span>
         </button>
 
-        <!-- midden: logo / appnaam -->
-        <div class="logo">
-          Orderprogramma
-        </div>
+        <div class="logo">Orderprogramma</div>
 
-        <!-- rechts: huidige pagina -->
-        <div class="current-page">
-          {{ pageTitle }}
-        </div>
+        <div class="current-page">{{ pageTitle }}</div>
       </div>
     </header>
 
-    <!-- Overlay achter het menu -->
-    <div
-      v-if="menuOpen"
-      class="overlay"
-      @click="menuOpen = false"
-    ></div>
+    <div v-if="menuOpen" class="overlay" @click="menuOpen = false"></div>
 
-    <!-- Zijmenu (detail staat NIET in menu) -->
     <nav class="side-menu" :class="{ open: menuOpen }">
       <h3>Menu</h3>
-      <button
-        class="menu-item"
-        :class="{ active: currentPage === 'klanten' }"
-        @click="goTo('klanten')"
-      >
-        Klanten
-      </button>
-      <button
-        class="menu-item"
-        :class="{ active: currentPage === 'order-nieuw' }"
-        @click="goTo('order-nieuw')"
-      >
-        Nieuwe order
-      </button>
-      <button
-        class="menu-item"
-        :class="{ active: currentPage === 'orders' }"
-        @click="goTo('orders')"
-      >
-        Orders overzicht
-      </button>
-      <button
-        class="menu-item"
-        :class="{ active: currentPage === 'pakbon' }"
-        @click="goTo('pakbon')"
-      >
-        Pakbon
-      </button>
-      <button
-      class="menu-item"
-      :class="{ active: currentPage === 'etiketten' }"
-      @click="goTo('etiketten')"
-      >
-        Etiketten
-      </button>
+      <button class="menu-item" :class="{ active: currentPage === 'klanten' }" @click="goTo('klanten')">Klanten</button>
+      <button class="menu-item" :class="{ active: currentPage === 'order-nieuw' }" @click="goTo('order-nieuw')">Nieuwe order</button>
+      <button class="menu-item" :class="{ active: currentPage === 'orders' }" @click="goTo('orders')">Orders overzicht</button>
+      <button class="menu-item" :class="{ active: currentPage === 'pakbon' }" @click="goTo('pakbon')">Pakbon</button>
+      <button class="menu-item" :class="{ active: currentPage === 'etiketten' }" @click="goTo('etiketten')">Etiketten</button>
     </nav>
 
-    <!-- Inhoud -->
-        <main class="main-content">
+    <main class="main-content">
       <KlantenPage v-if="currentPage === 'klanten'" />
       <OrdersNewPage v-else-if="currentPage === 'order-nieuw'" />
-      <OrdersOverview
-        v-else-if="currentPage === 'orders'"
-        @open-order="openOrderDetail"
-      />
+      <OrdersOverview v-else-if="currentPage === 'orders'" @open-order="openOrderDetail" />
       <PakbonPage v-else-if="currentPage === 'pakbon'" />
       <EtikettenPage v-else-if="currentPage === 'etiketten'" />
+
       <OrderDetailPage
         v-else-if="currentPage === 'order-detail'"
         :order="selectedOrder"

@@ -1,8 +1,9 @@
+<!-- src/KlantenPage.vue -->
 <template>
   <div class="page">
     <h1>Klanten</h1>
 
-    <!-- Formulier: nieuwe klant -->
+    <!-- Nieuwe klant -->
     <section class="card">
       <h2>Nieuwe klant aanmaken</h2>
 
@@ -66,25 +67,35 @@
 
         <label class="full">
           Notities
-          <textarea v-model="form.notities" rows="3" />
+          <textarea v-model="form.notities" rows="3"></textarea>
         </label>
 
         <div class="actions">
           <button type="submit" :disabled="saving">
             {{ saving ? "Opslaan..." : "Klant opslaan" }}
           </button>
+
+          <button type="button" @click="resetForm" :disabled="saving">
+            Reset
+          </button>
+
+          <button type="button" @click="loadKlanten" :disabled="loading">
+            {{ loading ? "Laden..." : "Ververs lijst" }}
+          </button>
+
           <span v-if="error" class="error">{{ error }}</span>
           <span v-if="success" class="success">{{ success }}</span>
         </div>
       </form>
     </section>
 
-    <!-- Overzicht: klanten -->
+    <!-- Overzicht -->
     <section class="card">
       <h2>Klantenoverzicht</h2>
 
       <div v-if="loading">Laden...</div>
       <div v-else-if="klanten.length === 0">Nog geen klanten.</div>
+
       <div v-else class="table-wrapper">
         <table>
           <thead>
@@ -95,96 +106,115 @@
               <th>Contactpersoon</th>
               <th>E-mail</th>
               <th>Telefoon</th>
+              <th>Acties</th>
             </tr>
           </thead>
+
           <tbody>
-            <tr v-for="klant in klanten" :key="klant.klant_id">
-              <td>{{ klant.klant_id }}</td>
-              <td>{{ klant.naam }}</td>
-              <td>{{ klant.plaats || "-" }}</td>
-              <td>{{ klant.contactpersoon || "-" }}</td>
-              <td>{{ klant.email || "-" }}</td>
-              <td>{{ klant.telefoon || "-" }}</td>
+            <tr v-for="k in klanten" :key="k.klant_id">
+              <td>{{ k.klant_id }}</td>
+              <td>{{ k.naam }}</td>
+              <td>{{ k.plaats || "-" }}</td>
+              <td>{{ k.contactpersoon || "-" }}</td>
+              <td>{{ k.email || "-" }}</td>
+              <td>{{ k.telefoon || "-" }}</td>
+              <td>
+                <button type="button" @click="deleteKlant(k.klant_id)" :disabled="deletingId === k.klant_id">
+                  {{ deletingId === k.klant_id ? "Verwijderen..." : "Verwijder" }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <p v-if="listError" class="error">{{ listError }}</p>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
+import { supabase } from "./lib/supabase";
+import type { Klant } from "./services/db";
+import { getKlanten } from "./services/db";
 
-const STORAGE_KLANTEN_KEY = "orderapp_klanten";
-const API_BASE = "http://localhost:3000";
+/**
+ * BELANGRIJK:
+ * - Lezen: via view "klanten_api" (getKlanten uit db.ts)
+ * - Schrijven/verwijderen: via table "klanten" (direct supabase)
+ *   (View is vaak read-only)
+ */
 
-interface Klant {
-  klant_id: number;
+type KlantInsert = {
   naam: string;
-  btw_nummer?: string;
-  kvk_nummer?: string;
-  straat?: string;
-  huisnummer?: string;
-  postcode?: string;
-  plaats?: string;
-  land?: string;
-  contactpersoon?: string;
-  email?: string;
-  telefoon?: string;
-  notities?: string;
-}
+  contactpersoon: string | null;
+  email: string | null;
+  telefoon: string | null;
+  straat: string | null;
+  huisnummer: string | null;
+  postcode: string | null;
+  plaats: string | null;
+  land: string | null;
+  btw_nummer: string | null;
+  kvk_nummer: string | null;
+  notities: string | null;
+};
 
-function loadKlantenFromStorage(): Klant[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KLANTEN_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Klant[];
-  } catch {
-    return [];
-  }
-}
-
-function saveKlantenToStorage(list: Klant[]) {
-  try {
-    localStorage.setItem(STORAGE_KLANTEN_KEY, JSON.stringify(list));
-  } catch (err) {
-    console.error("Kon klanten niet in localStorage opslaan", err);
-  }
-}
-
-const klanten = ref<Klant[]>(loadKlantenFromStorage());
+const klanten = ref<(Klant & Partial<Record<string, any>>)[]>([]);
 const loading = ref(false);
+const listError = ref<string | null>(null);
+
 const saving = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 
+const deletingId = ref<number | null>(null);
+
 const form = reactive({
   naam: "",
-  btw_nummer: "",
-  kvk_nummer: "",
+  contactpersoon: "",
+  email: "",
+  telefoon: "",
   straat: "",
   huisnummer: "",
   postcode: "",
   plaats: "",
   land: "",
-  contactpersoon: "",
-  email: "",
-  telefoon: "",
+  btw_nummer: "",
+  kvk_nummer: "",
   notities: "",
 });
 
+function resetForm() {
+  form.naam = "";
+  form.contactpersoon = "";
+  form.email = "";
+  form.telefoon = "";
+  form.straat = "";
+  form.huisnummer = "";
+  form.postcode = "";
+  form.plaats = "";
+  form.land = "";
+  form.btw_nummer = "";
+  form.kvk_nummer = "";
+  form.notities = "";
+}
+
 async function loadKlanten() {
   loading.value = true;
+  listError.value = null;
+
   try {
-    const res = await fetch(`${API_BASE}/klanten`);
-    if (!res.ok) throw new Error("Kon klanten niet laden");
-    const data: Klant[] = await res.json();
-    klanten.value = data;
-    saveKlantenToStorage(klanten.value);
-  } catch (e) {
-    console.warn("Backend niet bereikbaar, gebruik localStorage-data", e);
-    // klanten.value komt al uit localStorage
+    const data = await getKlanten();
+    // jouw Klant type heeft alleen klant_id + naam,
+    // maar je view kan extra velden hebben (plaats/email/etc),
+    // daarom casten we naar "Klant & extra".
+    klanten.value = data as any;
+  } catch (e: any) {
+    console.error(e);
+    listError.value = e?.message ?? "Kon klanten niet laden";
+    klanten.value = [];
   } finally {
     loading.value = false;
   }
@@ -201,47 +231,55 @@ async function createKlant() {
 
   saving.value = true;
   try {
-    const res = await fetch(`${API_BASE}/klanten`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    const payload: KlantInsert = {
+      naam: form.naam.trim(),
+      contactpersoon: form.contactpersoon.trim() || null,
+      email: form.email.trim() || null,
+      telefoon: form.telefoon.trim() || null,
+      straat: form.straat.trim() || null,
+      huisnummer: form.huisnummer.trim() || null,
+      postcode: form.postcode.trim() || null,
+      plaats: form.plaats.trim() || null,
+      land: form.land.trim() || null,
+      btw_nummer: form.btw_nummer.trim() || null,
+      kvk_nummer: form.kvk_nummer.trim() || null,
+      notities: form.notities.trim() || null,
+    };
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Kon klant niet opslaan");
-    }
+    const res = await supabase.from("klanten").insert(payload).select("klant_id").single();
+    if (res.error) throw res.error;
 
-    const newKlant: Klant = await res.json();
-    klanten.value.push(newKlant);
-    saveKlantenToStorage(klanten.value); // <<< belangrijk
-
-    Object.assign(form, {
-      naam: "",
-      btw_nummer: "",
-      kvk_nummer: "",
-      straat: "",
-      huisnummer: "",
-      postcode: "",
-      plaats: "",
-      land: "",
-      contactpersoon: "",
-      email: "",
-      telefoon: "",
-      notities: "",
-    });
-
-    success.value = "Klant opgeslagen";
+    success.value = `Klant opgeslagen (ID: ${res.data?.klant_id})`;
+    resetForm();
+    await loadKlanten();
   } catch (e: any) {
-    error.value = e.message || "Onbekende fout bij opslaan klant";
+    console.error(e);
+    error.value = e?.message ?? "Kon klant niet opslaan";
   } finally {
     saving.value = false;
   }
 }
 
-onMounted(() => {
-  loadKlanten();
-});
+async function deleteKlant(klantId: number) {
+  const sure = window.confirm(`Weet je zeker dat je klant #${klantId} wilt verwijderen?`);
+  if (!sure) return;
+
+  deletingId.value = klantId;
+  listError.value = null;
+
+  try {
+    const res = await supabase.from("klanten").delete().eq("klant_id", klantId);
+    if (res.error) throw res.error;
+    await loadKlanten();
+  } catch (e: any) {
+    console.error(e);
+    listError.value = e?.message ?? "Kon klant niet verwijderen";
+  } finally {
+    deletingId.value = null;
+  }
+}
+
+onMounted(loadKlanten);
 </script>
 
 <style scoped>

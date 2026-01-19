@@ -1,7 +1,9 @@
+<!-- src/EtikettenPage.vue -->
 <template>
   <div class="page">
     <h1 class="no-print">Etiketten</h1>
 
+    <!-- Instellingen -->
     <section class="card no-print">
       <h2>Instellingen</h2>
 
@@ -14,71 +16,43 @@
             <option value="16">16 etiketten (A4) — Avery 3484 (105×37mm)</option>
           </select>
 
-          <p class="hint" v-if="template === '16'">
-            Avery 3484 is 16 stuks: 2×8, 105×37mm.
-          </p>
-
+          <p class="hint" v-if="template === '16'">Avery 3484 is 16 stuks: 2×8, 105×37mm.</p>
           <p class="hint" v-if="template === '2'">
             Template “2” is <strong>altijd Lufthansa</strong>. Alleen <strong>datum</strong> is aanpasbaar.
           </p>
         </div>
 
-        <!-- Lufthansa datum (alleen voor template 2) -->
+        <!-- Lufthansa datum -->
         <div class="setting" v-if="template === '2'">
           <label>Datum (Date of Production)</label>
           <input class="input" type="date" v-model="lufthansaIsoDate" />
           <p class="hint">Wordt geprint als: <strong>{{ lufthansaDateDots }}</strong></p>
         </div>
 
-        <!-- Normale velden (niet voor template 2) -->
+        <!-- Normale templates -->
         <div class="setting" v-else>
           <label>Wat komt op het etiket?</label>
 
           <div class="chips">
-            <label class="chip">
-              <input type="checkbox" v-model="fields.klant" />
-              Klantnaam
-            </label>
+            <!-- basis -->
+            <label class="chip"><input type="checkbox" v-model="fields.klant" />Klantnaam</label>
+            <label class="chip"><input type="checkbox" v-model="fields.orderRef" />Order + Ref</label>
+            <label class="chip"><input type="checkbox" v-model="fields.product" />Product</label>
+            <label class="chip"><input type="checkbox" v-model="fields.formaat" />Formaat</label>
+            <label class="chip"><input type="checkbox" v-model="fields.leverdatum" />Leverdatum</label>
+            <label class="chip"><input type="checkbox" v-model="fields.artikel" />Artikelnummer</label>
+            <label class="chip"><input type="checkbox" v-model="fields.status" />Status</label>
+            <label class="chip"><input type="checkbox" v-model="fields.datum" />Datum (vandaag)</label>
+            <label class="chip"><input type="checkbox" v-model="fields.doosnummer" />Doosnummer (auto)</label>
 
-            <label class="chip">
-              <input type="checkbox" v-model="fields.orderRef" />
-              Order + Ref
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.product" />
-              Product
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.formaat" />
-              Formaat
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.leverdatum" />
-              Leverdatum
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.artikel" />
-              Artikelnummer
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.status" />
-              Status
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.datum" />
-              Datum (vandaag)
-            </label>
-
-            <label class="chip">
-              <input type="checkbox" v-model="fields.doosnummer" />
-              Doosnummer (auto)
-            </label>
+            <!-- extra (alles) -->
+            <label class="chip"><input type="checkbox" v-model="fields.materiaal" />Materiaal</label>
+            <label class="chip"><input type="checkbox" v-model="fields.dikte" />Dikte</label>
+            <label class="chip"><input type="checkbox" v-model="fields.perforatie" />Perforatie</label>
+            <label class="chip"><input type="checkbox" v-model="fields.stuksDoos" />Stuks/doos</label>
+            <label class="chip"><input type="checkbox" v-model="fields.totaalStuks" />Totaal stuks</label>
+            <label class="chip"><input type="checkbox" v-model="fields.dozenTotaal" />Totaal dozen</label>
+            <label class="chip"><input type="checkbox" v-model="fields.beugel" />Beugel (maat/vorm)</label>
           </div>
 
           <div class="doos-settings" v-if="fields.doosnummer && (template === '8' || template === '16')">
@@ -92,14 +66,24 @@
             </p>
           </div>
 
-          <p class="hint">
-            Max ~5 regels. Bij template 16 wordt font automatisch kleiner als je veel aanzet.
-          </p>
+          <!-- ✅ vrije tekst -->
+          <div class="setting">
+            <label>Extra tekst (optioneel)</label>
+            <input
+              class="input"
+              type="text"
+              v-model="extraText"
+              placeholder="Bijv: LET OP: spoed / speciale instructie / batch..."
+            />
+            <p class="hint">Deze tekst komt onderaan op elk gevuld etiket.</p>
+          </div>
+
+          <p class="hint">Max ~5 regels. Bij template 16 wordt font automatisch kleiner als je veel aanzet.</p>
         </div>
       </div>
     </section>
 
-    <!-- Orders lijst: alleen zinvol voor 8/16 -->
+    <!-- Orders kiezen -->
     <section class="card no-print" v-if="template !== '2'">
       <h2>Kies orders (klik om te vullen)</h2>
 
@@ -129,32 +113,26 @@
               title="Klik om op het volgende etiket te zetten"
             >
               <td>{{ o.order_id }}</td>
-              <td>{{ o.interne_referentie }}</td>
+              <td>{{ o.interne_referentie ?? "-" }}</td>
               <td>{{ klantNaam(o.klant_id) }}</td>
-              <td>{{ o.product_naam }}</td>
-              <td>{{ o.formaat }}</td>
+              <td>{{ o.product_naam ?? "-" }}</td>
+              <td>{{ o.formaat ?? "-" }}</td>
               <td>{{ formatDate(o.geplande_lever_datum) }}</td>
-              <td>{{ o.status }}</td>
+              <td>{{ o.status ?? "-" }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <p class="hint">
-        Tip: klik op een etiket in de preview om ‘m leeg te maken.
-      </p>
+      <p class="hint">Tip: klik op een etiket in de preview om ‘m leeg te maken.</p>
     </section>
 
+    <!-- Preview / print -->
     <section class="card print-card">
       <h2 class="no-print">Preview</h2>
 
       <div class="preview-wrap">
-        <!-- A4 sheet die geprint wordt -->
-        <div
-          class="sheet print-area"
-          :class="[`sheet-t${template}`]"
-          :style="sheetStyle"
-        >
+        <div class="sheet print-area" :class="[`sheet-t${template}`]" :style="sheetStyle">
           <div class="label-grid" :class="gridClass">
             <div
               v-for="(_, idx) in slotsCount"
@@ -162,11 +140,8 @@
               class="label"
               :class="[fontClass, template === '2' ? 'label-plain' : '']"
               @click="template !== '2' ? removeSlot(idx) : undefined"
-              :title="template !== '2'
-                ? (slots[idx] ? 'Klik om dit etiket leeg te maken' : 'Leeg')
-                : 'Lufthansa label (vast)'"
             >
-              <!-- TEMPLATE 2: Lufthansa -->
+              <!-- Lufthansa -->
               <template v-if="template === '2'">
                 <div class="luf">
                   <div class="luf-head">
@@ -176,7 +151,6 @@
 
                   <div class="luf-body">
                     <div class="luf-left"></div>
-
                     <div class="luf-right">
                       <div class="luf-row">
                         <div class="luf-big">Bakingbag for rolls large</div>
@@ -202,9 +176,7 @@
                       <div class="luf-row luf-split">
                         <div class="luf-col">
                           <div class="luf-mid">0,0064 kg</div>
-                          <div class="luf-small">
-                            Weight <span class="luf-light">per piece</span>
-                          </div>
+                          <div class="luf-small">Weight <span class="luf-light">per piece</span></div>
                         </div>
                         <div class="luf-col">
                           <div class="luf-mid">6,40 kg</div>
@@ -234,7 +206,6 @@
                         <div class="luf-recycle-code">1042</div>
                       </div>
                     </div>
-
                     <div class="luf-foot-right">
                       <div class="luf-ster">De Ster 363 0023</div>
                       <div class="luf-small2">De Ster-Art.-Nr.</div>
@@ -243,7 +214,7 @@
                 </div>
               </template>
 
-              <!-- TEMPLATE 8/16: normale labels -->
+              <!-- Normale labels -->
               <template v-else>
                 <template v-if="slots[idx]">
                   <div v-for="(line, i) in buildLines(slots[idx]!, idx)" :key="i" class="line">
@@ -264,22 +235,15 @@
         <button class="primary" @click="printSheet">Print / PDF</button>
       </div>
 
-      <p class="hint no-print">
-        Print tip: Chrome → Margins: None, Scale: 100%, Headers/Footers: uit, Background graphics: aan.
-      </p>
+      <p class="hint no-print">Print tip: Chrome → Margins: None, Scale: 100%, Headers/Footers: uit, Background graphics: aan.</p>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import type { Order } from "./OrdersOverview.vue";
-
-type Klant = { klant_id: number; naam: string };
-
-const API_BASE = "http://localhost:3000";
-const STORAGE_ORDERS_KEY = "orderapp_orders";
-const STORAGE_KLANTEN_KEY = "orderapp_klanten";
+import type { Order, Klant } from "./services/db";
+import { getOrders, getKlanten } from "./services/db";
 
 const orders = ref<Order[]>([]);
 const klanten = ref<Klant[]>([]);
@@ -300,6 +264,7 @@ type LabelSlot = null | {
 };
 
 const fields = reactive({
+  // basis
   klant: true,
   orderRef: true,
   product: true,
@@ -309,7 +274,18 @@ const fields = reactive({
   status: false,
   datum: false,
   doosnummer: false,
+
+  // extra (alles)
+  materiaal: false,
+  dikte: false,
+  perforatie: false,
+  stuksDoos: false,
+  totaalStuks: false,
+  dozenTotaal: false,
+  beugel: false,
 });
+
+const extraText = ref<string>("");
 
 const doosStart = ref<number>(1);
 
@@ -317,62 +293,40 @@ const lufthansaIsoDate = ref<string>(new Date().toISOString().slice(0, 10));
 const lufthansaDateDots = computed(() => formatDateDots(lufthansaIsoDate.value));
 
 const todayText = computed(() => {
-  const d = new Date();
-  const iso = d.toISOString().slice(0, 10);
+  const iso = new Date().toISOString().slice(0, 10);
   return formatDate(iso);
 });
 
-function formatDate(value: string) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}-${m}-${y}`;
 }
 
-function formatDateDots(value: string) {
+function formatDateDots(value: string | null | undefined) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}.${m}.${y}`;
 }
 
-function klantNaam(id: number) {
+function klantNaam(id: number | null) {
+  if (!id) return "-";
   const k = klanten.value.find((x) => x.klant_id === id);
   return k ? k.naam : `#${id}`;
 }
 
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 async function loadData() {
   loading.value = true;
-
-  orders.value = loadFromStorage<Order[]>(STORAGE_ORDERS_KEY, []);
-  klanten.value = loadFromStorage<Klant[]>(STORAGE_KLANTEN_KEY, []);
-
   try {
-    const [oRes, kRes] = await Promise.all([
-      fetch(`${API_BASE}/orders`),
-      fetch(`${API_BASE}/klanten`),
-    ]);
-
-    if (oRes.ok) {
-      orders.value = await oRes.json();
-      localStorage.setItem(STORAGE_ORDERS_KEY, JSON.stringify(orders.value));
-    }
-    if (kRes.ok) {
-      klanten.value = await kRes.json();
-      localStorage.setItem(STORAGE_KLANTEN_KEY, JSON.stringify(klanten.value));
-    }
-  } catch {
-    // backend offline -> localStorage blijft
+    const [o, k] = await Promise.all([getOrders(), getKlanten()]);
+    orders.value = o;
+    klanten.value = k;
+  } catch (e) {
+    console.warn(e);
+    orders.value = [];
+    klanten.value = [];
   } finally {
     loading.value = false;
   }
@@ -380,14 +334,12 @@ async function loadData() {
 
 onMounted(loadData);
 
-/** slots count per template */
 const slotsCount = computed(() => {
   if (template.value === "2") return 2;
   if (template.value === "8") return 8;
   return 16;
 });
 
-/** slots */
 const slots = ref<LabelSlot[]>([]);
 function resetSlotsForTemplate() {
   slots.value = Array.from({ length: slotsCount.value }, () => null);
@@ -400,13 +352,13 @@ function addToNextSlot(o: Order) {
 
   const slot: LabelSlot = {
     orderId: o.order_id,
-    ref: o.interne_referentie,
+    ref: o.interne_referentie ?? "-",
     klant: klantNaam(o.klant_id),
-    product: o.product_naam,
-    formaat: o.formaat,
+    product: o.product_naam ?? "-",
+    formaat: o.formaat ?? "-",
     leverdatum: formatDate(o.geplande_lever_datum),
-    artikel: o.klant_artikel_nummer || "-",
-    status: String(o.status || "-"),
+    artikel: o.klant_artikel_nummer ?? "-",
+    status: String(o.status ?? "-"),
   };
 
   slots.value[i] = slot;
@@ -424,45 +376,30 @@ function printSheet() {
   window.print();
 }
 
-/** auto font sizing */
-const selectedFieldCount = computed(() => {
-  return Object.values(fields).filter(Boolean).length;
-});
+const selectedFieldCount = computed(() => Object.values(fields).filter(Boolean).length);
 
-/** font: template 8 nooit verkleinen, template 16 wel */
 const fontClass = computed(() => {
   if (template.value === "8") return "f-normal";
   if (template.value === "2") return "f-normal";
 
   if (selectedFieldCount.value <= 5) return "f-normal";
-  if (selectedFieldCount.value <= 7) return "f-small";
+  if (selectedFieldCount.value <= 8) return "f-small";
   return "f-tiny";
 });
 
-/** grid class per template */
 const gridClass = computed(() => {
   if (template.value === "2") return "grid-2";
   if (template.value === "8") return "grid-8";
   return "grid-16";
 });
 
-/**
- * Print scale:
- * - 16: iets kleiner zodat printers (niet randloos) niks afsnijden
- * - 2 (Lufthansa): ook klein beetje kleiner (veilig)
- * - 8: meestal ok op 1.0
- */
 const printScale = computed(() => {
   if (template.value === "16") return "0.985";
   if (template.value === "2") return "0.99";
   return "1";
 });
 
-const sheetStyle = computed(() => {
-  return {
-    "--printScale": printScale.value,
-  } as Record<string, string>;
-});
+const sheetStyle = computed(() => ({ "--printScale": printScale.value }) as Record<string, string>);
 
 type FilledSlot = Exclude<LabelSlot, null>;
 
@@ -478,10 +415,34 @@ function buildLines(slot: FilledSlot, idx: number) {
   if (fields.status) lines.push(`Status: ${slot.status}`);
   if (fields.datum) lines.push(`Datum: ${todayText.value}`);
 
+  // ✅ extra velden (uit orders_api), alleen als aanwezig
+  const order = orders.value.find((o) => o.order_id === slot.orderId);
+
+  if (order) {
+    if (fields.materiaal && order.materiaal) lines.push(`Materiaal: ${order.materiaal}`);
+    if (fields.dikte && order.dikte_micron != null) lines.push(`Dikte: ${order.dikte_micron} µm`);
+    if (fields.perforatie && order.perforatie_type) lines.push(`Perforatie: ${order.perforatie_type}`);
+    if (fields.stuksDoos && order.stuks_per_doos != null) lines.push(`Stuks/doos: ${order.stuks_per_doos}`);
+    if (fields.totaalStuks && order.totaal_aantal_stuks != null) lines.push(`Totaal stuks: ${order.totaal_aantal_stuks}`);
+
+    if (fields.dozenTotaal && order.stuks_per_doos && order.totaal_aantal_stuks) {
+      const totalBoxes = Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos);
+      lines.push(`Dozen: ${totalBoxes}`);
+    }
+
+    if (fields.beugel && (order.beugel_maat || order.beugel_vorm)) {
+      lines.push(`Beugel: ${order.beugel_maat ?? "-"} / ${order.beugel_vorm ?? "-"}`);
+    }
+  }
+
   if (fields.doosnummer && (template.value === "8" || template.value === "16")) {
     const doosNr = (doosStart.value || 1) + idx;
     lines.push(`Doos: ${doosNr}`);
   }
+
+  // ✅ vrije tekst onderaan
+  const extra = extraText.value.trim();
+  if (extra) lines.push(extra);
 
   return lines;
 }

@@ -4,7 +4,6 @@
       <button @click="printPakbon">Pakbon + palletbon printen</button>
     </div>
 
-    <!-- PRINT ROOT -->
     <div class="print-root pakbon-print">
       <!-- PAGINA 1 -->
       <section class="doc-page">
@@ -36,7 +35,7 @@
                   <tr>
                     <td>Onze ref.</td>
                     <td>:</td>
-                    <td>{{ order.interne_referentie }}</td>
+                    <td>{{ order.interne_referentie || "-" }}</td>
                   </tr>
                   <tr>
                     <td>Levering</td>
@@ -68,14 +67,14 @@
               <tr>
                 <td>{{ onsArtNr }}</td>
                 <td class="omschrijving">
-                  <div>{{ order.product_naam }}</div>
-                  <div>Formaat: {{ order.formaat }}</div>
+                  <div>{{ order.product_naam || "-" }}</div>
+                  <div>Formaat: {{ order.formaat || "-" }}</div>
                   <div v-if="order.materiaal">Materiaal: {{ order.materiaal }}</div>
                   <div v-if="order.perforatie_type">Perforatie: {{ order.perforatie_type }}</div>
                   <div v-if="palletText">{{ palletText }}</div>
                 </td>
                 <td>
-                  <div v-if="order.totaal_aantal_stuks">
+                  <div v-if="order.totaal_aantal_stuks != null">
                     {{ order.totaal_aantal_stuks.toLocaleString("nl-NL") }} bags
                   </div>
                   <div v-if="totaalDozenText">{{ totaalDozenText }}</div>
@@ -89,11 +88,7 @@
 
       <!-- PAGINA 2 -->
       <section class="doc-page page-break">
-        <PalletbonPreview
-          :order="order"
-          :klant="klant"
-          :onsArtNr="onsArtNr"
-        />
+        <PalletbonPreview :order="order" :klant="klant" :onsArtNr="onsArtNr" />
       </section>
     </div>
   </div>
@@ -101,18 +96,8 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { Order } from "./OrdersOverview.vue";
+import type { Order, Klant } from "./services/db";
 import PalletbonPreview from "./PalletbonPreview.vue";
-
-interface Klant {
-  klant_id: number;
-  naam: string;
-  straat?: string;
-  huisnummer?: string;
-  postcode?: string;
-  plaats?: string;
-  land?: string;
-}
 
 const props = defineProps<{
   order: Order;
@@ -128,12 +113,13 @@ const klantAdres = computed(() => {
     props.klant.postcode && props.klant.plaats
       ? `${props.klant.postcode} ${props.klant.plaats}`
       : null,
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
+
   return parts.join(", ");
 });
 
 const onsArtNr = computed(() => {
-  return props.order.klant_artikel_nummer || props.order.interne_referentie;
+  return props.order.klant_artikel_nummer || props.order.interne_referentie || "-";
 });
 
 const totalBoxes = computed(() => {
@@ -142,7 +128,7 @@ const totalBoxes = computed(() => {
 });
 
 const totaalDozenText = computed(() => {
-  if (totalBoxes.value == null) return "";
+  if (totalBoxes.value == null || !props.order.stuks_per_doos) return "";
   return `${totalBoxes.value} dozen à ${props.order.stuks_per_doos} stuks`;
 });
 
@@ -153,7 +139,7 @@ const palletText = computed(() => {
   return `${pallets} pallet(en) · ca. ${dozenPerPallet} dozen per pallet`;
 });
 
-function formatDate(value: string) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
@@ -177,8 +163,7 @@ function printPakbon() {
 
 /* Pakbon kaart */
 .pakbon-card {
-  background: #111827;
-  color: #f9fafb;
+  color: #000000;
   padding: 1.5rem;
   border-radius: 8px;
   border: 1px solid #4b5563;
@@ -252,7 +237,7 @@ function printPakbon() {
 }
 
 .pakbon-table th {
-  background: #1f2937;
+  background: #00000045;
   font-weight: 600;
 }
 
@@ -315,6 +300,7 @@ function printPakbon() {
   .pakbon-card {
     border-radius: 0 !important;
     margin: 0 !important;
+    border: none
   }
 }
 </style>

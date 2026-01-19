@@ -1,3 +1,4 @@
+<!-- src/PakbonPage.vue -->
 <template>
   <div class="page">
     <h1>Pakbon maken</h1>
@@ -8,6 +9,7 @@
 
       <div v-if="loading">Laden...</div>
       <div v-else-if="orders.length === 0">Nog geen orders.</div>
+
       <div v-else class="table-wrapper">
         <table>
           <thead>
@@ -21,20 +23,21 @@
               <th>Status</th>
             </tr>
           </thead>
+
           <tbody>
             <tr
               v-for="order in orders"
               :key="order.order_id"
-              :class="{ selected: selectedOrder && selectedOrder.order_id === order.order_id }"
+              :class="{ selected: selectedOrder?.order_id === order.order_id }"
               @click="selectOrder(order)"
             >
               <td>{{ order.order_id }}</td>
-              <td>{{ order.interne_referentie }}</td>
+              <td>{{ order.interne_referentie ?? "-" }}</td>
               <td>{{ klantNaam(order.klant_id) }}</td>
-              <td>{{ order.product_naam }}</td>
-              <td>{{ order.formaat }}</td>
+              <td>{{ order.product_naam ?? "-" }}</td>
+              <td>{{ order.formaat ?? "-" }}</td>
               <td>{{ formatDate(order.geplande_lever_datum) }}</td>
-              <td>{{ order.status }}</td>
+              <td>{{ order.status ?? "-" }}</td>
             </tr>
           </tbody>
         </table>
@@ -43,22 +46,14 @@
       <p v-if="error" class="error">{{ error }}</p>
     </section>
 
-    <!-- PAKBON + PALLETBON PREVIEW -->
+    <!-- PAKBON PREVIEW -->
     <section class="card">
       <h2>Pakbon</h2>
 
       <div v-if="selectedOrder">
-        <PakbonPreview
-          :order="selectedOrder"
-          :klant="selectedKlant"
-        />
-
-        <div class="actions no-print">
-          <button class="primary" @click="printPakbon">
-            Print pakbon & palletbon
-          </button>
-        </div>
+        <PakbonPreview :order="selectedOrder" :klant="selectedKlant" />
       </div>
+
       <div v-else>
         <p>Kies hierboven eerst een order om de pakbon te zien.</p>
       </div>
@@ -69,133 +64,59 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import PakbonPreview from "./PakbonPreview.vue";
-import type { Order } from "./OrdersOverview.vue";
+import type { Order, Klant } from "./services/db";
+import { getOrders, getKlanten } from "./services/db";
 
-const API_BASE = "http://localhost:3000";
-const STORAGE_ORDERS_KEY = "orderapp_orders";
-const STORAGE_KLANTEN_KEY = "orderapp_klanten";
-
-export interface Klant {
-  klant_id: number;
-  naam: string;
-  btw_nummer?: string;
-  kvk_nummer?: string;
-  straat?: string;
-  huisnummer?: string;
-  postcode?: string;
-  plaats?: string;
-  land?: string;
-  contactpersoon?: string;
-  email?: string;
-  telefoon?: string;
-  notities?: string;
-}
-
-const orders = ref<Order[]>(loadOrdersFromStorage());
-const klanten = ref<Klant[]>(loadKlantenFromStorage());
+const orders = ref<Order[]>([]);
+const klanten = ref<Klant[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
 const selectedOrder = ref<Order | null>(null);
 
-function formatDate(value: string) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "-";
-  // komt in principe al als "YYYY-MM-DD" uit backend
-  return value.split("-").reverse().join("-"); // 2026-01-23 -> 23-01-2026
+  const [y, m, d] = value.split("-");
+  if (!y || !m || !d) return value;
+  return `${d}-${m}-${y}`;
 }
 
-function klantNaam(id: number) {
+function klantNaam(id: number | null) {
+  if (!id) return "-";
   const k = klanten.value.find((klant) => klant.klant_id === id);
   return k ? k.naam : `#${id}`;
 }
 
 const selectedKlant = computed<Klant | null>(() => {
   if (!selectedOrder.value) return null;
-  return klanten.value.find(
-    (k) => k.klant_id === selectedOrder.value!.klant_id
-  ) ?? null;
+  const id = selectedOrder.value.klant_id;
+  if (!id) return null;
+  return klanten.value.find((k) => k.klant_id === id) ?? null;
 });
 
 function selectOrder(order: Order) {
   selectedOrder.value = order;
 }
 
-function printPakbon() {
-  window.print();
-}
-
-/* ===== DATA LADEN (backend + fallback op localStorage) ===== */
-
 async function loadData() {
   loading.value = true;
   error.value = null;
 
   try {
-    const [ordersRes, klantenRes] = await Promise.all([
-      fetch(`${API_BASE}/orders`),
-      fetch(`${API_BASE}/klanten`),
-    ]);
-
-    if (!ordersRes.ok) throw new Error("Kon orders niet laden");
-    if (!klantenRes.ok) throw new Error("Kon klanten niet laden");
-
-    const ordersData: Order[] = await ordersRes.json();
-    const klantenData: Klant[] = await klantenRes.json();
-
-    orders.value = ordersData;
-    klanten.value = klantenData;
-
-    saveOrdersToStorage(orders.value);
-    saveKlantenToStorage(klanten.value);
+    const [o, k] = await Promise.all([getOrders(), getKlanten()]);
+    orders.value = o;
+    klanten.value = k;
   } catch (e: any) {
-    console.warn("Backend niet bereikbaar, gebruik localStorage-data", e);
-    error.value = null; // stil houden, we hebben al data lokaal
+    console.error(e);
+    error.value = e?.message ?? "Kon data niet laden";
+    orders.value = [];
+    klanten.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-onMounted(() => {
-  loadData();
-});
-
-/* ===== localStorage helpers ===== */
-
-function loadOrdersFromStorage(): Order[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_ORDERS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Order[];
-  } catch {
-    return [];
-  }
-}
-
-function saveOrdersToStorage(list: Order[]) {
-  try {
-    localStorage.setItem(STORAGE_ORDERS_KEY, JSON.stringify(list));
-  } catch (err) {
-    console.error("Kon orders niet in localStorage opslaan", err);
-  }
-}
-
-function loadKlantenFromStorage(): Klant[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KLANTEN_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Klant[];
-  } catch {
-    return [];
-  }
-}
-
-function saveKlantenToStorage(list: Klant[]) {
-  try {
-    localStorage.setItem(STORAGE_KLANTEN_KEY, JSON.stringify(list));
-  } catch (err) {
-    console.error("Kon klanten niet in localStorage opslaan", err);
-  }
-}
+onMounted(loadData);
 </script>
 
 <style scoped>

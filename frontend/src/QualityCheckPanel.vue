@@ -1,146 +1,135 @@
 <template>
-<div class="page">
-  <section class="card">
-    <h2>Quality check</h2>
+  <div class="page">
+    <section class="card">
+      <h2>Quality check</h2>
 
-    <p v-if="!order">Geen order geselecteerd.</p>
-    <template v-else>
-      <form class="form" @submit.prevent="saveCheck">
-        <div class="grid">
-          <label>
-            Datum
-            <input type="date" v-model="form.datum" required />
+      <p v-if="!order">Geen order geselecteerd.</p>
+
+      <template v-else>
+        <form class="form" @submit.prevent="saveCheck">
+          <div class="grid">
+            <label>
+              Datum
+              <input type="date" v-model="form.datum" required />
+            </label>
+
+            <label>
+              Machine nummer
+              <input type="text" v-model="form.machine_nummer" />
+            </label>
+
+            <label>
+              Operator
+              <input type="text" v-model="form.operator" />
+            </label>
+
+            <label>
+              Rol nummer
+              <input type="text" v-model="form.rol_nummer" />
+            </label>
+
+            <label>
+              Doos nummer
+              <input type="text" v-model="form.doos_nummer" />
+            </label>
+          </div>
+
+          <div class="checks-grid">
+            <label>
+              <input type="checkbox" v-model="form.lengte_breedte_ok" />
+              Lengte / breedte OK
+            </label>
+
+            <label>
+              <input type="checkbox" v-model="form.zijseal_ok" />
+              Zijseal OK
+            </label>
+
+            <label>
+              <input type="checkbox" v-model="form.lek_test_ok" />
+              Lek test OK
+            </label>
+
+            <label>
+              <input type="checkbox" v-model="form.perforatie_beugel_gaten_ok" />
+              Perforatie beugelgaten OK
+            </label>
+
+            <label>
+              <input type="checkbox" v-model="form.deeltjes_fysiek_ok" />
+              Deeltjes / fysiek OK
+            </label>
+          </div>
+
+          <label class="full">
+            Opmerkingen
+            <textarea v-model="form.opmerkingen" rows="3" />
           </label>
 
-          <label>
-            Machine nummer
-            <input type="text" v-model="form.machine_nummer" />
-          </label>
+          <div class="actions">
+            <button type="submit" :disabled="saving">
+              {{ saving ? "Opslaan..." : "Quality check opslaan" }}
+            </button>
 
-          <label>
-            Operator
-            <input type="text" v-model="form.operator" />
-          </label>
+            <span v-if="error" class="error">{{ error }}</span>
+            <span v-if="success" class="success">{{ success }}</span>
+          </div>
+        </form>
 
-          <label>
-            Rol nummer
-            <input type="text" v-model="form.rol_nummer" />
-          </label>
+        <div v-if="loadingList">Laden...</div>
 
-          <label>
-            Doos nummer
-            <input type="text" v-model="form.doos_nummer" />
-          </label>
-        </div>
+        <ul v-else>
+          <li v-for="qc in allChecks" :key="qc.qc_id" class="qc-item">
+            <div class="qc-main">
+              <strong>{{ qc.datum }}</strong>
+              – machine {{ qc.machine_nummer || "-" }},
+              operator {{ qc.operator || "-" }},
+              rol {{ qc.rol_nummer || "-" }},
+              doos {{ qc.doos_nummer || "-" }}
+            </div>
 
-        <div class="checks-grid">
-          <label>
-            <input type="checkbox" v-model="form.lengte_breedte_ok" />
-            Lengte / breedte OK
-          </label>
-          <label>
-            <input type="checkbox" v-model="form.zijseal_ok" />
-            Zijseal OK
-          </label>
-          <label>
-            <input type="checkbox" v-model="form.lek_test_ok" />
-            Lek test OK
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              v-model="form.perforatie_beugel_gaten_ok"
-            />
-            Perforatie beugelgaten OK
-          </label>
-          <label>
-            <input type="checkbox" v-model="form.deeltjes_fysiek_ok" />
-            Deeltjes / fysiek OK
-          </label>
-        </div>
+            <div class="qc-checks">
+              <span>
+                Lengte / breedte {{ qc.lengte_breedte_ok ? "OK" : "NOK" }}
+              </span>
+              <span>
+                Zijseal {{ qc.zijseal_ok ? "OK" : "NOK" }}
+              </span>
+              <span>
+                Lek test {{ qc.lek_test_ok ? "OK" : "NOK" }}
+              </span>
+              <span>
+                Beugelgaten {{ qc.perforatie_beugel_gaten_ok ? "OK" : "NOK" }}
+              </span>
+              <span>
+                Deeltjes / fysiek {{ qc.deeltjes_fysiek_ok ? "OK" : "NOK" }}
+              </span>
+            </div>
 
-        <label class="full">
-          Opmerkingen
-          <textarea v-model="form.opmerkingen" rows="3" />
-        </label>
-
-        <div class="actions">
-          <button type="submit" :disabled="saving">
-            {{ saving ? "Opslaan..." : "Quality check opslaan" }}
-          </button>
-          <span v-if="error" class="error">{{ error }}</span>
-          <span v-if="success" class="success">{{ success }}</span>
-        </div>
-      </form>
-
-        <ul>
-    <li v-for="qc in allChecks" :key="qc.qc_id" class="qc-item">
-      <div class="qc-main">
-        <strong>{{ qc.datum }}</strong>
-        – machine {{ qc.machine_nummer || "-" }},
-        operator {{ qc.operator || "-" }},
-        rol {{ qc.rol_nummer || "-" }},
-        doos {{ qc.doos_nummer || "-" }}
-      </div>
-
-                    <div class="qc-checks">
-                        <span :class="qc.lengte_breedte_ok ? 'chip-ok' : 'chip-nok'">
-                        Lengte / breedte {{ qc.lengte_breedte_ok ? "OK" : "NOK" }}
-                        </span>
-                        <span :class="qc.zijseal_ok ? 'chip-ok' : 'chip-nok'">
-                        Zijseal {{ qc.zijseal_ok ? "OK" : "NOK" }}
-                        </span>
-                        <span :class="qc.lek_test_ok ? 'chip-ok' : 'chip-nok'">
-                        Lek test {{ qc.lek_test_ok ? "OK" : "NOK" }}
-                        </span>
-                        <span :class="qc.perforatie_beugel_gaten_ok ? 'chip-ok' : 'chip-nok'">
-                        Beugelgaten {{ qc.perforatie_beugel_gaten_ok ? "OK" : "NOK" }}
-                        </span>
-                        <span :class="qc.deeltjes_fysiek_ok ? 'chip-ok' : 'chip-nok'">
-                        Deeltjes / fysiek {{ qc.deeltjes_fysiek_ok ? "OK" : "NOK" }}
-                        </span>
-                    </div>
-
-                    <div v-if="qc.opmerkingen" class="qc-remark">
-                        <strong>Opmerkingen:</strong> {{ qc.opmerkingen }}
-                    </div>
-                </li>
-            </ul>
-        </template>
+            <div v-if="qc.opmerkingen" class="qc-remark">
+              <strong>Opmerkingen:</strong> {{ qc.opmerkingen }}
+            </div>
+          </li>
+        </ul>
+      </template>
     </section>
-    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import type { Order } from "./OrdersOverview.vue";
-
-const API_BASE = "http://localhost:3000";
-const STORAGE_QC_KEY = "orderapp_qualitychecks";
-
-export interface QualityCheck {
-  qc_id: number;
-  order_id: number;
-  datum: string;
-  machine_nummer: string;
-  operator: string;
-  klantnummer?: string;
-  klant_order_nummer?: string;
-  rol_nummer?: string;
-  doos_nummer?: string;
-  lengte_breedte_ok: boolean;
-  zijseal_ok: boolean;
-  lek_test_ok: boolean;
-  perforatie_beugel_gaten_ok: boolean;
-  deeltjes_fysiek_ok: boolean;
-  opmerkingen?: string;
-}
+import { computed, onMounted, ref, watch } from "vue";
+import type { Order, QualityCheck, QualityCheckInsert } from "./services/db";
+import { createQualityCheck, getQualityChecksForOrder } from "./services/db";
 
 const props = defineProps<{
   order: Order | null;
 }>();
 
-const allChecks = ref<QualityCheck[]>(loadQcFromStorage());
+const orderId = computed(() => props.order?.order_id ?? null);
+
+const allChecks = ref<QualityCheck[]>([]);
+const loadingList = ref(false);
+
 const saving = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
@@ -159,25 +148,26 @@ const form = ref({
   opmerkingen: "",
 });
 
-const orderId = computed(() => props.order?.order_id ?? null);
+async function loadChecks() {
+  if (orderId.value == null) {
+    allChecks.value = [];
+    return;
+  }
 
-function loadQcFromStorage(): QualityCheck[] {
+  loadingList.value = true;
   try {
-    const raw = localStorage.getItem(STORAGE_QC_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as QualityCheck[];
-  } catch {
-    return [];
+    allChecks.value = await getQualityChecksForOrder(orderId.value);
+  } catch (e: any) {
+    console.warn(e);
+    allChecks.value = [];
+  } finally {
+    loadingList.value = false;
   }
 }
 
-function saveQcToStorage(list: QualityCheck[]) {
-  try {
-    localStorage.setItem(STORAGE_QC_KEY, JSON.stringify(list));
-  } catch (err) {
-    console.error("Kon quality checks niet in localStorage opslaan", err);
-  }
-}
+watch(orderId, () => {
+  loadChecks();
+}, { immediate: true });
 
 async function saveCheck() {
   error.value = null;
@@ -188,50 +178,36 @@ async function saveCheck() {
     return;
   }
 
-  const payload = {
+  const payload: QualityCheckInsert = {
     order_id: orderId.value,
     datum: form.value.datum,
-    machine_nummer: form.value.machine_nummer,
-    operator: form.value.operator,
-    rol_nummer: form.value.rol_nummer,
-    doos_nummer: form.value.doos_nummer,
-    lengte_breedte_ok: form.value.lengte_breedte_ok,
-    zijseal_ok: form.value.zijseal_ok,
-    lek_test_ok: form.value.lek_test_ok,
-    perforatie_beugel_gaten_ok: form.value.perforatie_beugel_gaten_ok,
-    deeltjes_fysiek_ok: form.value.deeltjes_fysiek_ok,
-    opmerkingen: form.value.opmerkingen,
-    klantnummer: props.order.klant_order_nummer ?? "",
-    klant_order_nummer: props.order.klant_order_nummer ?? "",
+
+    machine_nummer: form.value.machine_nummer || null,
+    operator: form.value.operator || null,
+    rol_nummer: form.value.rol_nummer || null,
+    doos_nummer: form.value.doos_nummer || null,
+
+    lengte_breedte_ok: !!form.value.lengte_breedte_ok,
+    zijseal_ok: !!form.value.zijseal_ok,
+    lek_test_ok: !!form.value.lek_test_ok,
+    perforatie_beugel_gaten_ok: !!form.value.perforatie_beugel_gaten_ok,
+    deeltjes_fysiek_ok: !!form.value.deeltjes_fysiek_ok,
+
+    opmerkingen: form.value.opmerkingen || null,
+
+    // optioneel: alleen als je die kolommen echt hebt in je tabel
+    klantnummer: props.order.klant_order_nummer ?? null,
+    klant_order_nummer: props.order.klant_order_nummer ?? null,
   };
 
   saving.value = true;
   try {
-    const res = await fetch(
-      `${API_BASE}/orders/${orderId.value}/quality-checks`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
+    const saved = await createQualityCheck(payload);
 
-    // LET OP: hier geen `QualityCheck | null` meer, maar altijd een `QualityCheck`
-    let saved: QualityCheck;
-    if (res.ok) {
-      saved = (await res.json()) as QualityCheck;
-    } else {
-      // fallback als backend faalt (bv. geen DB)
-      saved = {
-        qc_id: Date.now(),
-        ...payload,
-      };
-    }
+    // prepend bovenaan
+    allChecks.value = [saved, ...allChecks.value];
 
-    allChecks.value = [...allChecks.value, saved];
-    saveQcToStorage(allChecks.value);
-
-    // formulier resetten
+    // reset form
     form.value = {
       datum: new Date().toISOString().slice(0, 10),
       machine_nummer: "",
@@ -248,7 +224,8 @@ async function saveCheck() {
 
     success.value = "Quality check opgeslagen";
   } catch (e: any) {
-    error.value = e.message ?? "Onbekende fout bij opslaan quality check";
+    console.error(e);
+    error.value = e?.message ?? "Onbekende fout bij opslaan quality check";
   } finally {
     saving.value = false;
   }

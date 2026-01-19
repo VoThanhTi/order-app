@@ -2,163 +2,78 @@
   <div class="page" v-if="localOrder">
     <section class="card header-row">
       <div class="left">
-        <button class="back-btn" @click="emit('back')">
-          ← Terug naar overzicht
-        </button>
+        <button class="back-btn" @click="emit('back')">← Terug naar overzicht</button>
       </div>
+
       <div class="title">
         <h1>
           Orderdetails – #{{ localOrder.order_id }}
           <span v-if="displayKlantNaam">– {{ displayKlantNaam }}</span>
         </h1>
       </div>
+
       <div class="right">
-        <button v-if="!isEditing" class="edit-btn" @click="isEditing = true">
-          Bewerken
-        </button>
-        <button
-          v-if="!isEditing"
-          class="delete-btn"
-          @click="deleteOrderFn"
-          :disabled="deleting"
-        >
+        <button v-if="!isEditing" class="edit-btn" @click="isEditing = true">Bewerken</button>
+        <button v-if="!isEditing" class="delete-btn" @click="deleteOrderFn" :disabled="deleting">
           {{ deleting ? "Verwijderen..." : "Order verwijderen" }}
         </button>
       </div>
     </section>
 
-    <!-- BEKIJK MODUS -->
+    <!-- VIEW -->
     <template v-if="!isEditing">
       <section class="card">
         <h2>Algemeen</h2>
         <div class="grid">
-          <div class="field">
-            <span class="label">Interne referentie</span>
-            <span class="value">{{ localOrder.interne_referentie }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Klant</span>
-            <span class="value">
-              {{ displayKlantNaam }} (ID: {{ localOrder.klant_id }})
-            </span>
-          </div>
-          <div class="field">
-            <span class="label">Klant ordernr</span>
-            <span class="value">{{ localOrder.klant_order_nummer || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Artikelnr klant</span>
-            <span class="value">{{ localOrder.klant_artikel_nummer || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Orderdatum</span>
-            <span class="value">{{ localOrder.order_datum }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Geplande leverdatum</span>
-            <span class="value">{{ localOrder.geplande_lever_datum }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Status</span>
-            <span class="value">{{ localOrder.status }}</span>
-          </div>
+          <div class="field"><span class="label">Interne referentie</span><span class="value">{{ localOrder.interne_referentie ?? "-" }}</span></div>
+          <div class="field"><span class="label">Klant</span><span class="value">{{ displayKlantNaam }} (ID: {{ localOrder.klant_id ?? "-" }})</span></div>
+          <div class="field"><span class="label">Klant ordernr</span><span class="value">{{ localOrder.klant_order_nummer ?? "-" }}</span></div>
+          <div class="field"><span class="label">Artikelnr klant</span><span class="value">{{ localOrder.klant_artikel_nummer ?? "-" }}</span></div>
+          <div class="field"><span class="label">Orderdatum</span><span class="value">{{ localOrder.order_datum ?? "-" }}</span></div>
+          <div class="field"><span class="label">Geplande leverdatum</span><span class="value">{{ localOrder.geplande_lever_datum ?? "-" }}</span></div>
+          <div class="field"><span class="label">Status</span><span class="value">{{ localOrder.status ?? "-" }}</span></div>
         </div>
       </section>
 
       <section class="card">
         <h2>Productinformatie</h2>
         <div class="grid">
-          <div class="field">
-            <span class="label">Productnaam</span>
-            <span class="value">{{ localOrder.product_naam }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Formaat</span>
-            <span class="value">{{ localOrder.formaat }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Materiaal</span>
-            <span class="value">{{ localOrder.materiaal || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Dikte (µm)</span>
-            <span class="value">{{ localOrder.dikte_micron ?? "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Stuks per doos</span>
-            <span class="value">{{ localOrder.stuks_per_doos ?? "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Totaal aantal stuks</span>
-            <span class="value">{{ localOrder.totaal_aantal_stuks ?? "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Geproduceerde dozen</span>
-            <span class="value">{{ localOrder.geproduceerde_dozen ?? 0 }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Perforatie</span>
-            <span class="value">{{ localOrder.perforatie_type || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Beugel maat</span>
-            <span class="value">{{ localOrder.beugel_maat || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Beugel vorm</span>
-            <span class="value">{{ localOrder.beugel_vorm || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Etiket formaat</span>
-            <span class="value">{{ localOrder.etiket_format || "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Rows per rol</span>
-            <span class="value">{{ localOrder.rows_per_rol ?? "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Rol gewicht (g)</span>
-            <span class="value">{{ localOrder.rollen_gewicht_gram ?? "-" }}</span>
-          </div>
-          <div class="field">
-            <span class="label">Rol lengte (m)</span>
-            <span class="value">{{ localOrder.rol_lengte ?? "-" }}</span>
-          </div>
+          <div class="field"><span class="label">Productnaam</span><span class="value">{{ localOrder.product_naam ?? "-" }}</span></div>
+          <div class="field"><span class="label">Formaat</span><span class="value">{{ localOrder.formaat ?? "-" }}</span></div>
+          <div class="field"><span class="label">Materiaal</span><span class="value">{{ localOrder.materiaal ?? "-" }}</span></div>
+          <div class="field"><span class="label">Dikte (µm)</span><span class="value">{{ localOrder.dikte_micron ?? "-" }}</span></div>
+          <div class="field"><span class="label">Stuks per doos</span><span class="value">{{ localOrder.stuks_per_doos ?? "-" }}</span></div>
+          <div class="field"><span class="label">Totaal aantal stuks</span><span class="value">{{ localOrder.totaal_aantal_stuks ?? "-" }}</span></div>
+          <div class="field"><span class="label">Geproduceerde dozen</span><span class="value">{{ localOrder.geproduceerde_dozen ?? 0 }}</span></div>
+          <div class="field"><span class="label">Perforatie</span><span class="value">{{ localOrder.perforatie_type ?? "-" }}</span></div>
+          <div class="field"><span class="label">Beugel maat</span><span class="value">{{ localOrder.beugel_maat ?? "-" }}</span></div>
+          <div class="field"><span class="label">Beugel vorm</span><span class="value">{{ localOrder.beugel_vorm ?? "-" }}</span></div>
+          <div class="field"><span class="label">Etiket formaat</span><span class="value">{{ localOrder.etiket_format ?? "-" }}</span></div>
+          <div class="field"><span class="label">Rows per rol</span><span class="value">{{ localOrder.rows_per_rol ?? "-" }}</span></div>
+          <div class="field"><span class="label">Rol gewicht (g)</span><span class="value">{{ localOrder.rollen_gewicht_gram ?? "-" }}</span></div>
+          <div class="field"><span class="label">Rol lengte (m)</span><span class="value">{{ localOrder.rol_lengte ?? "-" }}</span></div>
         </div>
       </section>
 
       <section class="card">
         <h2>Notities</h2>
-        <p>{{ localOrder.notities || "Geen notities." }}</p>
+        <p>{{ localOrder.notities ?? "Geen notities." }}</p>
       </section>
     </template>
 
-    <!-- EDIT MODUS -->
+    <!-- EDIT -->
     <template v-else>
       <section class="card">
         <h2>Order bewerken</h2>
+
         <form class="form" @submit.prevent="saveChanges">
           <div class="grid">
-            <div class="field">
-              <span class="label">Interne referentie</span>
-              <input v-model="localOrder.interne_referentie" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Klant ordernr</span>
-              <input v-model="localOrder.klant_order_nummer" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Artikelnr klant</span>
-              <input v-model="localOrder.klant_artikel_nummer" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Orderdatum</span>
-              <input v-model="localOrder.order_datum" type="date" />
-            </div>
-            <div class="field">
-              <span class="label">Geplande leverdatum</span>
-              <input v-model="localOrder.geplande_lever_datum" type="date" />
-            </div>
+            <div class="field"><span class="label">Interne referentie</span><input v-model="localOrder.interne_referentie" type="text" /></div>
+            <div class="field"><span class="label">Klant ordernr</span><input v-model="localOrder.klant_order_nummer" type="text" /></div>
+            <div class="field"><span class="label">Artikelnr klant</span><input v-model="localOrder.klant_artikel_nummer" type="text" /></div>
+            <div class="field"><span class="label">Orderdatum</span><input v-model="localOrder.order_datum" type="date" /></div>
+            <div class="field"><span class="label">Geplande leverdatum</span><input v-model="localOrder.geplande_lever_datum" type="date" /></div>
+
             <div class="field">
               <span class="label">Status</span>
               <select v-model="localOrder.status">
@@ -169,90 +84,21 @@
               </select>
             </div>
 
-            <div class="field">
-              <span class="label">Productnaam</span>
-              <input v-model="localOrder.product_naam" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Formaat</span>
-              <input v-model="localOrder.formaat" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Materiaal</span>
-              <input v-model="localOrder.materiaal" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Dikte (µm)</span>
-              <input
-                v-model.number="localOrder.dikte_micron"
-                type="number"
-                min="0"
-              />
-            </div>
-            <div class="field">
-              <span class="label">Stuks per doos</span>
-              <input
-                v-model.number="localOrder.stuks_per_doos"
-                type="number"
-                min="0"
-              />
-            </div>
-            <div class="field">
-              <span class="label">Totaal aantal stuks</span>
-              <input
-                v-model.number="localOrder.totaal_aantal_stuks"
-                type="number"
-                min="0"
-              />
-            </div>
-            <div class="field">
-              <span class="label">Geproduceerde dozen</span>
-              <input
-                v-model.number="localOrder.geproduceerde_dozen"
-                type="number"
-                min="0"
-              />
-            </div>
-            <div class="field">
-              <span class="label">Perforatie type</span>
-              <input v-model="localOrder.perforatie_type" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Beugel maat</span>
-              <input v-model="localOrder.beugel_maat" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Beugel vorm</span>
-              <input v-model="localOrder.beugel_vorm" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Etiket formaat</span>
-              <input v-model="localOrder.etiket_format" type="text" />
-            </div>
-            <div class="field">
-              <span class="label">Rows per rol</span>
-              <input
-                v-model.number="localOrder.rows_per_rol"
-                type="number"
-                min="0"
-              />
-            </div>
-            <div class="field">
-              <span class="label">Rol gewicht (g)</span>
-              <input
-                v-model.number="localOrder.rollen_gewicht_gram"
-                type="number"
-                min="0"
-              />
-            </div>
-            <div class="field">
-              <span class="label">Rol lengte (m)</span>
-              <input
-                v-model.number="localOrder.rol_lengte"
-                type="number"
-                min="0"
-              />
-            </div>
+            <div class="field"><span class="label">Productnaam</span><input v-model="localOrder.product_naam" type="text" /></div>
+            <div class="field"><span class="label">Formaat</span><input v-model="localOrder.formaat" type="text" /></div>
+            <div class="field"><span class="label">Materiaal</span><input v-model="localOrder.materiaal" type="text" /></div>
+            <div class="field"><span class="label">Dikte (µm)</span><input v-model.number="localOrder.dikte_micron" type="number" min="0" /></div>
+            <div class="field"><span class="label">Stuks per doos</span><input v-model.number="localOrder.stuks_per_doos" type="number" min="0" /></div>
+            <div class="field"><span class="label">Totaal aantal stuks</span><input v-model.number="localOrder.totaal_aantal_stuks" type="number" min="0" /></div>
+            <div class="field"><span class="label">Geproduceerde dozen</span><input v-model.number="localOrder.geproduceerde_dozen" type="number" min="0" /></div>
+
+            <div class="field"><span class="label">Perforatie type</span><input v-model="localOrder.perforatie_type" type="text" /></div>
+            <div class="field"><span class="label">Beugel maat</span><input v-model="localOrder.beugel_maat" type="text" /></div>
+            <div class="field"><span class="label">Beugel vorm</span><input v-model="localOrder.beugel_vorm" type="text" /></div>
+            <div class="field"><span class="label">Etiket formaat</span><input v-model="localOrder.etiket_format" type="text" /></div>
+            <div class="field"><span class="label">Rows per rol</span><input v-model.number="localOrder.rows_per_rol" type="number" min="0" /></div>
+            <div class="field"><span class="label">Rol gewicht (g)</span><input v-model.number="localOrder.rollen_gewicht_gram" type="number" min="0" /></div>
+            <div class="field"><span class="label">Rol lengte (m)</span><input v-model.number="localOrder.rol_lengte" type="number" min="0" /></div>
           </div>
 
           <div class="field full">
@@ -261,17 +107,8 @@
           </div>
 
           <div class="actions">
-            <button type="submit" :disabled="saving">
-              {{ saving ? "Opslaan..." : "Wijzigingen opslaan" }}
-            </button>
-            <button
-              type="button"
-              class="cancel-btn"
-              @click="cancelEdit"
-              :disabled="saving"
-            >
-              Annuleren
-            </button>
+            <button type="submit" :disabled="saving">{{ saving ? "Opslaan..." : "Wijzigingen opslaan" }}</button>
+            <button type="button" class="cancel-btn" @click="cancelEdit" :disabled="saving">Annuleren</button>
             <span v-if="error" class="error">{{ error }}</span>
             <span v-if="success" class="success">{{ success }}</span>
           </div>
@@ -283,22 +120,19 @@
   <div v-else class="page">
     <section class="card">
       <p>Geen order geselecteerd.</p>
-      <button class="back-btn" @click="emit('back')">
-        ← Terug naar overzicht
-      </button>
+      <button class="back-btn" @click="emit('back')">← Terug naar overzicht</button>
     </section>
   </div>
-<QualityCheckPanel v-if="localOrder" :order="localOrder" />
+  <QualityCheckPanel v-if="localOrder" :order="localOrder" />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
-import type { Order } from "./OrdersOverview.vue";
+import { computed, ref, watch } from "vue";
+import type { Order, Klant } from "./services/db";
+import { getKlanten, updateOrder, deleteOrder } from "./services/db";
 import QualityCheckPanel from "./QualityCheckPanel.vue";
 
-const props = defineProps<{
-  order: Order | null;
-}>();
+const props = defineProps<{ order: Order | null }>();
 
 const emit = defineEmits<{
   (e: "back"): void;
@@ -306,62 +140,51 @@ const emit = defineEmits<{
   (e: "deleted"): void;
 }>();
 
-const API_BASE = "http://localhost:3000";
-
-interface Klant {
-  klant_id: number;
-  naam: string;
-}
-
+const klanten = ref<Klant[]>([]);
 const klantNaam = ref<string | null>(null);
+
 const isEditing = ref(false);
 const saving = ref(false);
 const deleting = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 
-// we werken met een lokale kopie van de order zodat je
-// wijzigingen kunt annuleren
 const localOrder = ref<Order | null>(null);
 
 watch(
   () => props.order,
-  (newOrder) => {
+  async (newOrder) => {
     localOrder.value = newOrder ? { ...newOrder } : null;
     isEditing.value = false;
     error.value = null;
     success.value = null;
+
+    if (!klanten.value.length) {
+      try {
+        klanten.value = await getKlanten();
+      } catch {
+        klanten.value = [];
+      }
+    }
+
+    if (localOrder.value?.klant_id) {
+      const k = klanten.value.find((x) => x.klant_id === localOrder.value!.klant_id);
+      klantNaam.value = k ? k.naam : null;
+    } else {
+      klantNaam.value = null;
+    }
   },
   { immediate: true }
 );
 
 const displayKlantNaam = computed(() => {
   if (!localOrder.value) return null;
-  return klantNaam.value ?? `Klant #${localOrder.value.klant_id}`;
-});
-
-// klantnaam ophalen
-onMounted(async () => {
-  if (!localOrder.value) return;
-
-  try {
-    const res = await fetch(`${API_BASE}/klanten`);
-    if (!res.ok) return;
-
-    const klanten: Klant[] = await res.json();
-    const k = klanten.find((k) => k.klant_id === localOrder.value!.klant_id);
-    if (k) {
-      klantNaam.value = k.naam;
-    }
-  } catch (e) {
-    console.error("Kon klantnaam niet ophalen", e);
-  }
+  if (klantNaam.value) return klantNaam.value;
+  return localOrder.value.klant_id ? `Klant #${localOrder.value.klant_id}` : "-";
 });
 
 function cancelEdit() {
-  if (props.order) {
-    localOrder.value = { ...props.order };
-  }
+  if (props.order) localOrder.value = { ...props.order };
   isEditing.value = false;
   error.value = null;
   success.value = null;
@@ -370,54 +193,49 @@ function cancelEdit() {
 async function saveChanges() {
   if (!localOrder.value) return;
 
+  saving.value = true;
   error.value = null;
   success.value = null;
-  saving.value = true;
 
   try {
-    const body = {
-      interne_referentie: localOrder.value.interne_referentie,
-      klant_order_nummer: localOrder.value.klant_order_nummer,
-      klant_artikel_nummer: localOrder.value.klant_artikel_nummer,
-      order_datum: localOrder.value.order_datum,
-      geplande_lever_datum: localOrder.value.geplande_lever_datum,
-      status: localOrder.value.status,
-      product_naam: localOrder.value.product_naam,
-      formaat: localOrder.value.formaat,
-      materiaal: localOrder.value.materiaal,
+    const patch = {
+      interne_referentie: localOrder.value.interne_referentie ?? null,
+      klant_order_nummer: localOrder.value.klant_order_nummer ?? null,
+      klant_artikel_nummer: localOrder.value.klant_artikel_nummer ?? null,
+      order_datum: localOrder.value.order_datum ?? null,
+      geplande_lever_datum: localOrder.value.geplande_lever_datum ?? null,
+      status: (localOrder.value.status ?? "OPEN") as any,
+
+      product_naam: localOrder.value.product_naam ?? null,
+      formaat: localOrder.value.formaat ?? null,
+      materiaal: localOrder.value.materiaal ?? null,
       dikte_micron: localOrder.value.dikte_micron ?? 0,
+
       stuks_per_doos: localOrder.value.stuks_per_doos ?? 0,
       totaal_aantal_stuks: localOrder.value.totaal_aantal_stuks ?? 0,
       geproduceerde_dozen: localOrder.value.geproduceerde_dozen ?? 0,
-      perforatie_type: localOrder.value.perforatie_type,
-      beugel_maat: localOrder.value.beugel_maat,
-      beugel_vorm: localOrder.value.beugel_vorm,
-      etiket_format: localOrder.value.etiket_format,
+
+      perforatie_type: localOrder.value.perforatie_type ?? null,
+      beugel_maat: localOrder.value.beugel_maat ?? null,
+      beugel_vorm: localOrder.value.beugel_vorm ?? null,
+      etiket_format: localOrder.value.etiket_format ?? null,
+
       rows_per_rol: localOrder.value.rows_per_rol ?? 0,
       rollen_gewicht_gram: localOrder.value.rollen_gewicht_gram ?? 0,
       rol_lengte: localOrder.value.rol_lengte ?? 0,
-      notities: localOrder.value.notities,
+
+      notities: localOrder.value.notities ?? null,
     };
 
-    const res = await fetch(`${API_BASE}/orders/${localOrder.value.order_id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Kon order niet bijwerken");
-    }
-
-    const updated: Order = await res.json();
-    localOrder.value = updated;
+    const updated = await updateOrder(localOrder.value.order_id, patch);
+    localOrder.value = { ...updated };
     emit("updated", updated);
+
     isEditing.value = false;
     success.value = "Order bijgewerkt";
   } catch (e: any) {
     console.error(e);
-    error.value = e.message || "Onbekende fout bij bijwerken";
+    error.value = e?.message ?? "Kon order niet bijwerken";
   } finally {
     saving.value = false;
   }
@@ -426,9 +244,7 @@ async function saveChanges() {
 async function deleteOrderFn() {
   if (!localOrder.value) return;
 
-  const sure = window.confirm(
-    `Weet je zeker dat je order #${localOrder.value.order_id} wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`
-  );
+  const sure = window.confirm(`Weet je zeker dat je order #${localOrder.value.order_id} wilt verwijderen?`);
   if (!sure) return;
 
   deleting.value = true;
@@ -436,30 +252,19 @@ async function deleteOrderFn() {
   success.value = null;
 
   try {
-    const res = await fetch(
-      `${API_BASE}/orders/${localOrder.value.order_id}`,
-      {
-        method: "DELETE",
-      }
-    );
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Kon order niet verwijderen");
-    }
-
+    await deleteOrder(localOrder.value.order_id);
     emit("deleted");
   } catch (e: any) {
     console.error(e);
-    error.value = e.message || "Onbekende fout bij verwijderen";
+    error.value = e?.message ?? "Kon order niet verwijderen";
   } finally {
     deleting.value = false;
   }
 }
 </script>
 
-<style scoped>
 
+<style scoped>
 .card {
   background: #ffffff;
   border-radius: 12px;

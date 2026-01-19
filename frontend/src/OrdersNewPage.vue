@@ -155,8 +155,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
-
-const API_BASE = "http://localhost:3000";
+import { supabase } from "./lib/supabase";
 
 interface Klant {
   klant_id: number;
@@ -166,7 +165,7 @@ interface Klant {
 type OrderStatus = "OPEN" | "IN_PRODUCTIE" | "KLAAR" | "GEANNULEERD";
 
 interface OrderForm {
-  klant_id: number | "" ;
+  klant_id: number | "";
   interne_referentie: string;
   klant_order_nummer: string;
   klant_artikel_nummer: string;
@@ -237,10 +236,16 @@ const form = reactive<OrderForm>({
 
 async function loadKlanten() {
   loadingKlanten.value = true;
+  error.value = null;
+
   try {
-    const res = await fetch(`${API_BASE}/klanten`);
-    if (!res.ok) throw new Error("Kon klanten niet laden");
-    klanten.value = await res.json();
+    const res = await supabase
+      .from("klanten_api")
+      .select("*")
+      .order("naam", { ascending: true });
+
+    if (res.error) throw res.error;
+    klanten.value = (res.data ?? []) as Klant[];
   } catch (e: any) {
     console.error(e);
     error.value = e.message || "Fout bij laden klanten";
@@ -263,6 +268,36 @@ function validateForm(): string | null {
   return null;
 }
 
+function resetForm() {
+  form.interne_referentie = "";
+  form.klant_order_nummer = "";
+  form.klant_artikel_nummer = "";
+  form.order_datum = "";
+  form.geplande_lever_datum = "";
+  form.product_naam = "";
+  form.formaat = "";
+  form.product_type = "";
+  form.materiaal = "";
+  form.dikte_micron = null;
+  form.bedrukking = "";
+  form.beugel_maat = "";
+  form.beugel_vorm = "";
+  form.perforatie_type = "";
+  form.stuks_per_doos = null;
+  form.totaal_aantal_stuks = null;
+  form.totaal_aantal_meters = null;
+  form.totaal_prijs = null;
+  form.pallet_type = "";
+  form.totaal_per_pallet = null;
+  form.rollen_gewicht_gram = null;
+  form.rows_per_rol = null;
+  form.etiket_format = "";
+  form.rol_lengte = null;
+  form.notities = "";
+  form.status = "OPEN";
+  form.gereed_voor_verzending = false;
+}
+
 async function createOrder() {
   error.value = null;
   success.value = null;
@@ -276,74 +311,67 @@ async function createOrder() {
   saving.value = true;
 
   try {
-    const body = {
-      ...form,
+    // ⚠️ Hier mappen we jouw frontend veld naar echte DB kolomnaam:
+    // interne_referentie -> interne_referentie_nummer
+    const payload: Record<string, any> = {
       klant_id: form.klant_id,
+
+      interne_referentie_nummer: form.interne_referentie.trim(),
+      klant_order_nummer: form.klant_order_nummer || null,
+      klant_artikel_nummer: form.klant_artikel_nummer || null,
+
+      order_datum: form.order_datum,
+      geplande_lever_datum: form.geplande_lever_datum,
+
+      product_naam: form.product_naam.trim(),
+      formaat: form.formaat.trim(),
+      product_type: form.product_type || null,
+      materiaal: form.materiaal.trim(),
       dikte_micron: form.dikte_micron ?? 0,
+      bedrukking: form.bedrukking || null,
+      beugel_maat: form.beugel_maat || null,
+      beugel_vorm: form.beugel_vorm || null,
+      perforatie_type: form.perforatie_type || null,
+
       stuks_per_doos: form.stuks_per_doos ?? 0,
       totaal_aantal_stuks: form.totaal_aantal_stuks ?? 0,
+
       totaal_aantal_meters: form.totaal_aantal_meters ?? 0,
       totaal_prijs: form.totaal_prijs ?? 0,
+
+      pallet_type: form.pallet_type || null,
       totaal_per_pallet: form.totaal_per_pallet ?? 0,
+
       rollen_gewicht_gram: form.rollen_gewicht_gram ?? 0,
       rows_per_rol: form.rows_per_rol ?? 0,
+      etiket_format: form.etiket_format || null,
       rol_lengte: form.rol_lengte ?? 0,
+
+      notities: form.notities || null,
+      status: form.status,
+
+      gereed_voor_verzending: form.gereed_voor_verzending,
+
+      // voortgang default (veilig)
+      geproduceerde_dozen: 0,
     };
 
-    const res = await fetch(`${API_BASE}/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const res = await supabase.from("orders").insert(payload).select("order_id").single();
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Kon order niet opslaan");
-    }
+    if (res.error) throw res.error;
 
-    await res.json(); // data kun je later gebruiken
-
-    success.value = "Order opgeslagen";
-
-    // formulier leegmaken (maar klant laten staan is ook prima)
-    form.interne_referentie = "";
-    form.klant_order_nummer = "";
-    form.klant_artikel_nummer = "";
-    form.order_datum = "";
-    form.geplande_lever_datum = "";
-    form.product_naam = "";
-    form.formaat = "";
-    form.product_type = "";
-    form.materiaal = "";
-    form.dikte_micron = null;
-    form.bedrukking = "";
-    form.beugel_maat = "";
-    form.beugel_vorm = "";
-    form.perforatie_type = "";
-    form.stuks_per_doos = null;
-    form.totaal_aantal_stuks = null;
-    form.totaal_aantal_meters = null;
-    form.totaal_prijs = null;
-    form.pallet_type = "";
-    form.totaal_per_pallet = null;
-    form.rollen_gewicht_gram = null;
-    form.rows_per_rol = null;
-    form.etiket_format = "";
-    form.rol_lengte = null;
-    form.notities = "";
-    form.status = "OPEN";
-    form.gereed_voor_verzending = false;
+    success.value = `Order opgeslagen (ID: ${res.data?.order_id})`;
+    resetForm();
   } catch (e: any) {
     console.error(e);
+    // typische Supabase fout: "column ... does not exist" => dan mist die kolom in je table
     error.value = e.message || "Onbekende fout bij opslaan order";
   } finally {
     saving.value = false;
   }
 }
 
-onMounted(() => {
-  loadKlanten();
-});
+onMounted(loadKlanten);
 </script>
 
 <style scoped>

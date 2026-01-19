@@ -10,7 +10,6 @@
 
     <h2 class="palletbon-title">PALLETBON</h2>
 
-    <!-- 1) Afleveradres + pallet info zoals pakbon tabel -->
     <table class="pakbon-table">
       <thead>
         <tr>
@@ -30,14 +29,13 @@
             <div>Per pallet aantal dozen: {{ dozenPerPallet }}</div>
             <div>Totaal aantal dozen: {{ totalBoxes ?? "-" }}</div>
             <div>Art.nr.: {{ onsArtNr }}</div>
-            <div>Onze ref.: {{ order.interne_referentie }}</div>
+            <div>Onze ref.: {{ order.interne_referentie || "-" }}</div>
             <div>Uw order: {{ order.klant_order_nummer || "-" }}</div>
           </td>
         </tr>
       </tbody>
     </table>
 
-    <!-- 2) AFZ onderaan -->
     <table class="pakbon-table afz-table">
       <thead>
         <tr><th>AFZ</th></tr>
@@ -58,17 +56,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { Order } from "./OrdersOverview.vue";
-
-interface Klant {
-  klant_id: number;
-  naam: string;
-  straat?: string;
-  huisnummer?: string;
-  postcode?: string;
-  plaats?: string;
-  land?: string;
-}
+import type { Order, Klant } from "./services/db";
 
 const props = defineProps<{
   order: Order;
@@ -85,7 +73,8 @@ const klantAdres = computed(() => {
     props.klant.postcode && props.klant.plaats
       ? `${props.klant.postcode} ${props.klant.plaats}`
       : null,
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
+
   return parts.join(", ");
 });
 
@@ -97,15 +86,16 @@ const totalBoxes = computed(() => {
 const dozenPerPallet = computed(() => props.order.totaal_per_pallet || 36);
 </script>
 
+
 <style>
 .palletbon-card {
-  background: #111827;
-  color: #f9fafb;
+  color: #000000;
   padding: 1.5rem;
   border-radius: 8px;
   border: 1px solid #4b5563;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   page-break-inside: avoid;
+  border: none
 }
 
 .palletbon-header {
