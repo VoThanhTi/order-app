@@ -13,10 +13,47 @@
       </div>
 
       <div class="right">
+        <!-- NEW: PRINT BUTTONS -->
+        <button class="print-btn" @click="printWerkbon" :disabled="!localOrder">Print werkbon</button>
+        <button class="confirm-btn" @click="printOrderbevestiging" :disabled="!localOrder">
+          Orderbevestiging
+        </button>
+
         <button v-if="!isEditing" class="edit-btn" @click="isEditing = true">Bewerken</button>
         <button v-if="!isEditing" class="delete-btn" @click="deleteOrderFn" :disabled="deleting">
           {{ deleting ? "Verwijderen..." : "Order verwijderen" }}
         </button>
+      </div>
+    </section>
+
+    <!-- NEW: document velden (bewerken voor prints) -->
+    <section class="card">
+      <h2>Documentgegevens (Orderbevesteging)</h2>
+      <div class="grid">
+        <div class="field">
+          <span class="label">Bedrukking</span>
+          <input v-model="docFields.bedrukking" type="text" placeholder="bijv. 1 kleur / logo / geen" />
+        </div>
+
+        <div class="field">
+          <span class="label">Stuks per beugel</span>
+          <input v-model="docFields.stuksPerBeugel" type="text" placeholder="bijv. 23" />
+        </div>
+
+        <div class="field">
+          <span class="label">Prijs per eenheid (€)</span>
+          <input v-model.number="docFields.prijsPerEenheid" type="number" min="0" step="0.01" />
+        </div>
+
+        <div class="field">
+          <span class="label">Extra omschrijving</span>
+          <input v-model="docFields.extraOmschrijving" type="text" placeholder="komt extra op de bevestiging" />
+        </div>
+
+        <div class="field">
+          <span class="label">Totaalprijs (€)</span>
+          <span class="value">{{ formatMoney(totaalPrijs) }}</span>
+        </div>
       </div>
     </section>
 
@@ -103,7 +140,7 @@
 
           <div class="field full">
             <span class="label">Notities</span>
-            <textarea v-model="localOrder.notities" rows="3" />
+            <textarea v-model="localOrder.notities" rows="3"></textarea>
           </div>
 
           <div class="actions">
@@ -123,6 +160,7 @@
       <button class="back-btn" @click="emit('back')">← Terug naar overzicht</button>
     </section>
   </div>
+
   <QualityCheckPanel v-if="localOrder" :order="localOrder" />
 </template>
 
@@ -151,6 +189,14 @@ const success = ref<string | null>(null);
 
 const localOrder = ref<Order | null>(null);
 
+/** NEW: doc velden voor orderbevestiging (lokaal per order) */
+const docFields = ref({
+  bedrukking: "",
+  stuksPerBeugel: "",
+  prijsPerEenheid: 0,
+  extraOmschrijving: "",
+});
+
 watch(
   () => props.order,
   async (newOrder) => {
@@ -173,14 +219,48 @@ watch(
     } else {
       klantNaam.value = null;
     }
+
+    // load doc fields per order
+    loadDocFields();
   },
   { immediate: true }
+);
+
+watch(
+  docFields,
+  () => {
+    saveDocFields();
+  },
+  { deep: true }
 );
 
 const displayKlantNaam = computed(() => {
   if (!localOrder.value) return null;
   if (klantNaam.value) return klantNaam.value;
   return localOrder.value.klant_id ? `Klant #${localOrder.value.klant_id}` : "-";
+});
+
+const klantObj = computed<Klant | null>(() => {
+  if (!localOrder.value?.klant_id) return null;
+  return klanten.value.find((k) => k.klant_id === localOrder.value!.klant_id) ?? null;
+});
+
+const klantAdres = computed(() => {
+  const k = klantObj.value;
+  if (!k) return "";
+  const parts = [
+    k.straat && k.huisnummer ? `${k.straat} ${k.huisnummer}` : null,
+    k.postcode && k.plaats ? `${k.postcode} ${k.plaats}` : null,
+    k.land ? k.land : null,
+  ].filter(Boolean);
+  return parts.join(", ");
+});
+
+const totaalPrijs = computed(() => {
+  const aantal = Number(localOrder.value?.totaal_aantal_stuks ?? 0);
+  const prijs = Number(docFields.value.prijsPerEenheid ?? 0);
+  if (!aantal || !prijs) return 0;
+  return Math.round(aantal * prijs * 100) / 100;
 });
 
 function cancelEdit() {
@@ -261,10 +341,306 @@ async function deleteOrderFn() {
     deleting.value = false;
   }
 }
+
+/* ------------------ PRINT HELPERS ------------------ */
+
+function escapeHtml(input: any) {
+  const s = String(input ?? "");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  const [y, m, d] = String(value).split("-");
+  if (!y || !m || !d) return String(value);
+  return `${d}-${m}-${y}`;
+}
+
+function formatMoney(n: number) {
+  return (Number(n) || 0).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function openPrintWindow(title: string, bodyHtml: string) {
+  const w = window.open("", "_blank", "width=900,height=1000");
+  if (!w) return;
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; margin:0; }
+    h1,h2 { margin: 0 0 8px 0; }
+    .muted { color:#444; font-size:12px; }
+    .row { display:flex; gap:16px; justify-content:space-between; }
+    .box { border:1px solid #000; padding:10px; border-radius:6px; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border:1px solid #000; padding:6px; vertical-align:top; }
+    th { background:#eee; text-align:left; }
+    .no-border td { border:none; padding:2px 0; }
+    .right { text-align:right; }
+    .title { text-align:center; letter-spacing:2px; margin:12px 0; }
+    .spacer { height:10px; }
+  </style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`;
+
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+
+  // Wachten tot window ready is, dan printen
+  w.onload = () => {
+    setTimeout(() => {
+      try {
+        w.focus();
+        w.print();
+      } catch {}
+    }, 50);
+  };
+}
+
+
+/** 1) Werkbon voor operators */
+function printWerkbon() {
+  if (!localOrder.value) return;
+
+  const o = localOrder.value;
+  const klantNaamText = displayKlantNaam.value ?? "-";
+  const adres = klantAdres.value || "-";
+
+  const stuks = Number(o.totaal_aantal_stuks ?? 0);
+  const perDoos = Number(o.stuks_per_doos ?? 0);
+  const dozen = stuks && perDoos ? Math.ceil(stuks / perDoos) : "-";
+
+  const html = `
+    <div class="box">
+      <div class="row">
+        <div>
+          <h2>PETERS VERPAKKINGEN B.V.</h2>
+          <div class="muted">Werkbon (operators)</div>
+        </div>
+        <div class="right">
+          <div><b>Order #</b> ${escapeHtml(o.order_id)}</div>
+          <div><b>Ref</b> ${escapeHtml(o.interne_referentie ?? "-")}</div>
+          <div><b>Leverdatum</b> ${escapeHtml(formatDate(o.geplande_lever_datum))}</div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="row">
+        <div class="box" style="flex:1;">
+          <b>Klant</b><br/>
+          ${escapeHtml(klantNaamText)}<br/>
+          ${escapeHtml(adres)}
+        </div>
+        <div class="box" style="flex:1;">
+          <b>Product</b><br/>
+          ${escapeHtml(o.product_naam ?? "-")}<br/>
+          <span class="muted">Formaat:</span> ${escapeHtml(o.formaat ?? "-")}<br/>
+          <span class="muted">Materiaal/dikte:</span> ${escapeHtml(o.materiaal ?? "-")} / ${escapeHtml(o.dikte_micron ?? "-")} µm<br/>
+          <span class="muted">Perforatie:</span> ${escapeHtml(o.perforatie_type ?? "-")}<br/>
+          <span class="muted">Beugel:</span> ${escapeHtml(o.beugel_vorm ?? "-")} (${escapeHtml(o.beugel_maat ?? "-")})
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Aantal stuks</th>
+            <th>Stuks per doos</th>
+            <th>Totaal dozen</th>
+            <th>Geproduceerde dozen</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(stuks || "-")}</td>
+            <td>${escapeHtml(perDoos || "-")}</td>
+            <td>${escapeHtml(dozen)}</td>
+            <td>${escapeHtml(o.geproduceerde_dozen ?? 0)}</td>
+            <td>${escapeHtml(o.status ?? "-")}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="spacer"></div>
+
+      <div class="box">
+        <b>Notities</b><br/>
+        ${escapeHtml(o.notities ?? "Geen notities.")}
+      </div>
+
+      <div class="spacer"></div>
+    </div>
+  `;
+
+  openPrintWindow(`Werkbon Order #${o.order_id}`, html);
+}
+
+/** 2) Orderbevestiging (jouw PDF velden) */
+function printOrderbevestiging() {
+  if (!localOrder.value) return;
+
+  const o = localOrder.value;
+
+  const html = `
+    <div class="box">
+      <h2 style="text-align:center;">Orderbevestiging</h2>
+
+      <table class="no-border" style="width:100%; margin-top:6px;">
+        <tr>
+          <td><b>Ordernummer</b></td><td>${escapeHtml(o.interne_referentie ?? o.order_id)}</td>
+          <td class="right"><b>Order datum</b></td><td class="right">${escapeHtml(formatDate(o.order_datum))}</td>
+        </tr>
+        <tr>
+          <td><b>Art. # klant</b></td><td>${escapeHtml(o.klant_artikel_nummer ?? "-")}</td>
+          <td class="right"><b>Order leverdatum</b></td><td class="right">${escapeHtml(formatDate(o.geplande_lever_datum))}</td>
+        </tr>
+      </table>
+
+      <div class="spacer"></div>
+
+      <div class="row">
+        <div class="box" style="flex:1;">
+          <b>Klant</b><br/>
+          ${escapeHtml(displayKlantNaam.value ?? "-")}<br/>
+          ${escapeHtml(klantAdres.value || "-")}
+        </div>
+
+        <div class="box" style="flex:1;">
+          <b>Bedrukking</b><br/>
+          ${escapeHtml(docFields.value.bedrukking || "-")}<br/>
+          ${docFields.value.extraOmschrijving ? `<div class="muted">${escapeHtml(docFields.value.extraOmschrijving)}</div>` : ""}
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Produkt ID</th>
+            <th>Product type</th>
+            <th>Materiaal en dikte</th>
+            <th>Formaat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(o.klant_artikel_nummer ?? o.interne_referentie ?? o.order_id)}</td>
+            <td>${escapeHtml(o.product_naam ?? "-")}</td>
+            <td>${escapeHtml(o.materiaal ?? "-")} ${escapeHtml(o.dikte_micron ?? "-")} µm</td>
+            <td>${escapeHtml(o.formaat ?? "-")}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="spacer"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Order aantal</th>
+            <th>Stuks per doos</th>
+            <th>Perforatie</th>
+            <th>Beugel</th>
+            <th>Stuks per beugel</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(o.totaal_aantal_stuks ?? "-")}</td>
+            <td>${escapeHtml(o.stuks_per_doos ?? "-")}</td>
+            <td>${escapeHtml(o.perforatie_type ?? "-")}</td>
+            <td>${escapeHtml(o.beugel_vorm ?? "-")} (${escapeHtml(o.beugel_maat ?? "-")})</td>
+            <td>${escapeHtml(docFields.value.stuksPerBeugel || "-")}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="spacer"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Prijs per eenheid</th>
+            <th>Prijs totaal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>€ ${escapeHtml(formatMoney(Number(docFields.value.prijsPerEenheid || 0)))}</td>
+            <td>€ ${escapeHtml(formatMoney(totaalPrijs.value))}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="spacer"></div>
+
+      <div class="muted">
+        Dit document is gegenereerd vanuit het orderprogramma.
+      </div>
+    </div>
+  `;
+
+  openPrintWindow(`Orderbevestiging Order #${o.order_id}`, html);
+}
+
+/* ------------------ DOCFIELDS STORAGE ------------------ */
+
+function docKey() {
+  const id = localOrder.value?.order_id;
+  return id ? `docFields:${id}` : null;
+}
+
+function loadDocFields() {
+  const key = docKey();
+  if (!key) return;
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    docFields.value = {
+      bedrukking: parsed?.bedrukking ?? "",
+      stuksPerBeugel: parsed?.stuksPerBeugel ?? "",
+      prijsPerEenheid: Number(parsed?.prijsPerEenheid ?? 0),
+      extraOmschrijving: parsed?.extraOmschrijving ?? "",
+    };
+  } catch {
+    // ignore
+  }
+}
+
+function saveDocFields() {
+  const key = docKey();
+  if (!key) return;
+
+  try {
+    localStorage.setItem(key, JSON.stringify(docFields.value));
+  } catch {
+    // ignore
+  }
+}
 </script>
 
-
 <style scoped>
+/* jouw bestaande styles */
 .card {
   background: #ffffff;
   border-radius: 12px;
@@ -287,6 +663,7 @@ async function deleteOrderFn() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 h1 {
@@ -326,7 +703,9 @@ h2 {
 .back-btn,
 .edit-btn,
 .delete-btn,
-.cancel-btn {
+.cancel-btn,
+.print-btn,
+.confirm-btn {
   border-radius: 999px;
   border: 1px solid #4b5563;
   padding: 0.35rem 0.9rem;
@@ -358,6 +737,23 @@ h2 {
 }
 .delete-btn:hover {
   background: #991b1b;
+}
+
+.print-btn {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+.print-btn:hover {
+  background: #111827;
+}
+
+.confirm-btn {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #eaffea;
+}
+.confirm-btn:hover {
+  background: #15803d;
 }
 
 .cancel-btn {
@@ -404,6 +800,7 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .error {

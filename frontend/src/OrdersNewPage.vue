@@ -147,6 +147,7 @@
           </button>
           <span v-if="error" class="error">{{ error }}</span>
           <span v-if="success" class="success">{{ success }}</span>
+          <span v-if="loadingKlanten" class="muted text-sm"> Data ophalen...</span>
         </div>
       </form>
     </section>
@@ -154,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, watch } from "vue";
 import { supabase } from "./lib/supabase";
 
 interface Klant {
@@ -202,12 +203,15 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 
+// Vandaag als standaard datum voor nieuwe orders
+const today = new Date().toISOString().split('T')[0] as string;
+
 const form = reactive<OrderForm>({
   klant_id: "",
   interne_referentie: "",
   klant_order_nummer: "",
   klant_artikel_nummer: "",
-  order_datum: "",
+  order_datum: today,
   geplande_lever_datum: "",
 
   product_naam: "",
@@ -234,10 +238,65 @@ const form = reactive<OrderForm>({
   gereed_voor_verzending: false,
 });
 
+/**
+ * Automatisch velden vullen op basis van de laatste order van de gekozen klant
+ */
+async function fillFromLastOrder(klantId: number) {
+  loadingKlanten.value = true;
+  try {
+    const { data, error: fetchError } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("klant_id", klantId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    if (data) {
+      // Vul productspecificaties in
+      form.product_naam = data.product_naam || "";
+      form.formaat = data.formaat || "";
+      form.product_type = data.product_type || "";
+      form.materiaal = data.materiaal || "";
+      form.dikte_micron = data.dikte_micron;
+      form.bedrukking = data.bedrukking || "";
+      form.beugel_maat = data.beugel_maat || "";
+      form.beugel_vorm = data.beugel_vorm || "";
+      form.perforatie_type = data.perforatie_type || "";
+      form.stuks_per_doos = data.stuks_per_doos;
+      form.totaal_aantal_stuks = data.totaal_aantal_stuks;
+      form.pallet_type = data.pallet_type || "";
+      form.totaal_per_pallet = data.totaal_per_pallet;
+      form.rollen_gewicht_gram = data.rollen_gewicht_gram;
+      form.rows_per_rol = data.rows_per_rol;
+      form.etiket_format = data.etiket_format || "";
+      form.rol_lengte = data.rol_lengte;
+      form.notities = data.notities || "";
+      
+      // Specifieke order-data maken we leeg voor een nieuwe invoer
+      form.interne_referentie = "";
+      form.klant_order_nummer = "";
+      form.klant_artikel_nummer = data.klant_artikel_nummer || "";
+    }
+  } catch (e: any) {
+    console.error("Fout bij ophalen laatste order:", e.message);
+  } finally {
+    loadingKlanten.value = false;
+  }
+}
+
+// Watcher die reageert op klantselectie
+watch(() => form.klant_id, (newVal) => {
+  if (newVal) {
+    fillFromLastOrder(newVal as number);
+  }
+});
+
 async function loadKlanten() {
   loadingKlanten.value = true;
   error.value = null;
-
   try {
     const res = await supabase
       .from("klanten_api")
@@ -272,7 +331,7 @@ function resetForm() {
   form.interne_referentie = "";
   form.klant_order_nummer = "";
   form.klant_artikel_nummer = "";
-  form.order_datum = "";
+  form.order_datum = today;
   form.geplande_lever_datum = "";
   form.product_naam = "";
   form.formaat = "";
@@ -309,20 +368,14 @@ async function createOrder() {
   }
 
   saving.value = true;
-
   try {
-    // ⚠️ Hier mappen we jouw frontend veld naar echte DB kolomnaam:
-    // interne_referentie -> interne_referentie_nummer
     const payload: Record<string, any> = {
       klant_id: form.klant_id,
-
       interne_referentie_nummer: form.interne_referentie.trim(),
       klant_order_nummer: form.klant_order_nummer || null,
       klant_artikel_nummer: form.klant_artikel_nummer || null,
-
       order_datum: form.order_datum,
       geplande_lever_datum: form.geplande_lever_datum,
-
       product_naam: form.product_naam.trim(),
       formaat: form.formaat.trim(),
       product_type: form.product_type || null,
@@ -332,39 +385,29 @@ async function createOrder() {
       beugel_maat: form.beugel_maat || null,
       beugel_vorm: form.beugel_vorm || null,
       perforatie_type: form.perforatie_type || null,
-
       stuks_per_doos: form.stuks_per_doos ?? 0,
       totaal_aantal_stuks: form.totaal_aantal_stuks ?? 0,
-
       totaal_aantal_meters: form.totaal_aantal_meters ?? 0,
       totaal_prijs: form.totaal_prijs ?? 0,
-
       pallet_type: form.pallet_type || null,
       totaal_per_pallet: form.totaal_per_pallet ?? 0,
-
       rollen_gewicht_gram: form.rollen_gewicht_gram ?? 0,
       rows_per_rol: form.rows_per_rol ?? 0,
       etiket_format: form.etiket_format || null,
       rol_lengte: form.rol_lengte ?? 0,
-
       notities: form.notities || null,
       status: form.status,
-
       gereed_voor_verzending: form.gereed_voor_verzending,
-
-      // voortgang default (veilig)
       geproduceerde_dozen: 0,
     };
 
     const res = await supabase.from("orders").insert(payload).select("order_id").single();
-
     if (res.error) throw res.error;
 
     success.value = `Order opgeslagen (ID: ${res.data?.order_id})`;
     resetForm();
   } catch (e: any) {
     console.error(e);
-    // typische Supabase fout: "column ... does not exist" => dan mist die kolom in je table
     error.value = e.message || "Onbekende fout bij opslaan order";
   } finally {
     saving.value = false;

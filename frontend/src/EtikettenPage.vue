@@ -217,8 +217,15 @@
               <!-- Normale labels -->
               <template v-else>
                 <template v-if="slots[idx]">
-                  <div v-for="(line, i) in buildLines(slots[idx]!, idx)" :key="i" class="line">
-                    {{ line }}
+                  <div class="label-body">
+                    <div 
+                      v-for="(line, i) in buildLines(slots[idx]!, idx)" 
+                      :key="i" 
+                      class="line"
+                      :class="{ 'full-width': i < 3 || i === buildLines(slots[idx]!, idx).length - 1 }"
+                    >
+                      {{ line }}
+                    </div>
                   </div>
                 </template>
                 <template v-else>
@@ -565,10 +572,25 @@ button.primary{background:#2563eb;color:#fff;}
   color:#4b5563;
 }
 
-.preview-wrap{
-  overflow-x:auto;
-  padding-bottom:.5rem;
-  line-height: 2.3;
+.preview-wrap {
+  overflow-x: auto;
+  padding-bottom: .5rem;
+  line-height: 1.2; 
+}
+
+.label-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Twee kolommen */
+  column-gap: 4mm;
+  row-gap: 0.5mm;
+  align-content: start;
+}
+
+.line.full-width {
+  grid-column: span 2;
+  font-weight: bold;
+  border-bottom: 0.5px solid #eee;
+  margin-bottom: 1px;
 }
 
 /* ===================== SHEET / GRID ===================== */
@@ -630,12 +652,17 @@ button.primary{background:#2563eb;color:#fff;}
 .grid-8  .label{width:105mm;height:74.25mm;}
 .grid-2  .label{width:210mm;height:148.5mm;padding:0;}
 
+/* Bij template 16 (klein) moeten we iets zuiniger zijn met ruimte */
+.grid-16 .label {
+  padding: 2mm 3mm;
+}
+
 .label-plain{border:none;}
 
-.line{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+.line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .empty{
@@ -647,9 +674,9 @@ button.primary{background:#2563eb;color:#fff;}
 }
 
 /* auto font sizing */
-.f-normal .line{font-size:10pt;line-height:1.15;}
-.f-small  .line{font-size:9pt; line-height:1.12;}
-.f-tiny   .line{font-size:8pt; line-height:1.1;}
+.f-normal .line { font-size: 10pt; line-height: 1.3; }
+.f-small  .line { font-size: 9pt;  line-height: 1.2; }
+.f-tiny   .line { font-size: 8pt;  line-height: 1.1; }
 
 /* ===================== Lufthansa label ===================== */
 .luf {
