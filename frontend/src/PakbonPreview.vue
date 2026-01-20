@@ -75,7 +75,7 @@
                 </td>
                 <td>
                   <div v-if="order.totaal_aantal_stuks != null">
-                    {{ order.totaal_aantal_stuks.toLocaleString("nl-NL") }} bags
+                    {{ order.totaal_aantal_stuks.toLocaleString("nl-NL") }} aantal dozen
                   </div>
                   <div v-if="totaalDozenText">{{ totaalDozenText }}</div>
                 </td>

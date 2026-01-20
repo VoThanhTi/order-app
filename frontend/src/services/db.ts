@@ -64,6 +64,7 @@ export type Order = {
   // voortgang
   stuks_per_doos?: number | null;
   totaal_aantal_stuks?: number | null;
+  stuks_per_bundel: number | null;
   geproduceerde_dozen?: number | null;
 
   // extra velden (detail/nieuw)
@@ -111,6 +112,7 @@ export type OrderUpdate = Partial<
     | "beugel_vorm"
     | "perforatie_type"
     | "stuks_per_doos"
+    | "stuks_per_bundel"
     | "totaal_aantal_stuks"
     | "geproduceerde_dozen"
     | "pallet_type"
@@ -153,10 +155,11 @@ export async function getOrderById(orderId: number): Promise<Order> {
 }
 
 export async function updateOrder(orderId: number, patch: OrderUpdate): Promise<Order> {
+  // We updaten de basistabel 'orders'
   const up = await supabase.from("orders").update(patch).eq("order_id", orderId);
   if (up.error) throw up.error;
 
-  // altijd teruglezen uit view (consistente velden)
+  // Altijd teruglezen uit de view/api voor consistente velden
   return await getOrderById(orderId);
 }
 

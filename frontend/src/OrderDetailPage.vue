@@ -80,6 +80,7 @@
           <div class="field"><span class="label">Materiaal</span><span class="value">{{ localOrder.materiaal ?? "-" }}</span></div>
           <div class="field"><span class="label">Dikte (µm)</span><span class="value">{{ localOrder.dikte_micron ?? "-" }}</span></div>
           <div class="field"><span class="label">Stuks per doos</span><span class="value">{{ localOrder.stuks_per_doos ?? "-" }}</span></div>
+          <div class="field"><span class="label">Stuks per bundel</span><span class="value">{{ localOrder.stuks_per_bundel ?? "-" }}</span></div> 
           <div class="field"><span class="label">Totaal aantal stuks</span><span class="value">{{ localOrder.totaal_aantal_stuks ?? "-" }}</span></div>
           <div class="field"><span class="label">Geproduceerde dozen</span><span class="value">{{ localOrder.geproduceerde_dozen ?? 0 }}</span></div>
           <div class="field"><span class="label">Perforatie</span><span class="value">{{ localOrder.perforatie_type ?? "-" }}</span></div>
@@ -126,6 +127,7 @@
             <div class="field"><span class="label">Materiaal</span><input v-model="localOrder.materiaal" type="text" /></div>
             <div class="field"><span class="label">Dikte (µm)</span><input v-model.number="localOrder.dikte_micron" type="number" min="0" /></div>
             <div class="field"><span class="label">Stuks per doos</span><input v-model.number="localOrder.stuks_per_doos" type="number" min="0" /></div>
+            <div class="field"><span class="label">Stuks per bundel</span><input v-model.number="localOrder.stuks_per_bundel" type="number" min="0" /></div>
             <div class="field"><span class="label">Totaal aantal stuks</span><input v-model.number="localOrder.totaal_aantal_stuks" type="number" min="0" /></div>
             <div class="field"><span class="label">Geproduceerde dozen</span><input v-model.number="localOrder.geproduceerde_dozen" type="number" min="0" /></div>
 
@@ -292,6 +294,7 @@ async function saveChanges() {
       dikte_micron: localOrder.value.dikte_micron ?? 0,
 
       stuks_per_doos: localOrder.value.stuks_per_doos ?? 0,
+      stuks_per_bundel: localOrder.value.stuks_per_bundel ?? 0,
       totaal_aantal_stuks: localOrder.value.totaal_aantal_stuks ?? 0,
       geproduceerde_dozen: localOrder.value.geproduceerde_dozen ?? 0,
 
@@ -461,8 +464,8 @@ function printWerkbon() {
         <thead>
           <tr>
             <th>Aantal stuks</th>
-            <th>Stuks per doos</th>
-            <th>Totaal dozen</th>
+            <th>Stuks/doos</th>
+            <th>Stuks/bundel</th> <th>Totaal dozen</th>
             <th>Geproduceerde dozen</th>
             <th>Status</th>
           </tr>
@@ -471,7 +474,7 @@ function printWerkbon() {
           <tr>
             <td>${escapeHtml(stuks || "-")}</td>
             <td>${escapeHtml(perDoos || "-")}</td>
-            <td>${escapeHtml(dozen)}</td>
+            <td>${escapeHtml(o.stuks_per_bundel || "-")}</td> <td>${escapeHtml(dozen)}</td>
             <td>${escapeHtml(o.geproduceerde_dozen ?? 0)}</td>
             <td>${escapeHtml(o.status ?? "-")}</td>
           </tr>
@@ -556,19 +559,17 @@ function printOrderbevestiging() {
         <thead>
           <tr>
             <th>Order aantal</th>
-            <th>Stuks per doos</th>
-            <th>Perforatie</th>
+            <th>Stuks/doos</th>
+            <th>Stuks/bundel</th> <th>Perforatie</th>
             <th>Beugel</th>
-            <th>Stuks per beugel</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>${escapeHtml(o.totaal_aantal_stuks ?? "-")}</td>
             <td>${escapeHtml(o.stuks_per_doos ?? "-")}</td>
-            <td>${escapeHtml(o.perforatie_type ?? "-")}</td>
+            <td>${escapeHtml(o.stuks_per_bundel ?? "-")}</td> <td>${escapeHtml(o.perforatie_type ?? "-")}</td>
             <td>${escapeHtml(o.beugel_vorm ?? "-")} (${escapeHtml(o.beugel_maat ?? "-")})</td>
-            <td>${escapeHtml(docFields.value.stuksPerBeugel || "-")}</td>
           </tr>
         </tbody>
       </table>

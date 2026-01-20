@@ -50,6 +50,7 @@
             <label class="chip"><input type="checkbox" v-model="fields.dikte" />Dikte</label>
             <label class="chip"><input type="checkbox" v-model="fields.perforatie" />Perforatie</label>
             <label class="chip"><input type="checkbox" v-model="fields.stuksDoos" />Stuks/doos</label>
+            <label class="chip"><input type="checkbox" v-model="fields.bundel" />Bundel (stuks)</label>
             <label class="chip"><input type="checkbox" v-model="fields.totaalStuks" />Totaal stuks</label>
             <label class="chip"><input type="checkbox" v-model="fields.dozenTotaal" />Totaal dozen</label>
             <label class="chip"><input type="checkbox" v-model="fields.beugel" />Beugel (maat/vorm)</label>
@@ -217,12 +218,11 @@
               <!-- Normale labels -->
               <template v-else>
                 <template v-if="slots[idx]">
-                  <div class="label-body">
+                  <div class="label-content">
                     <div 
                       v-for="(line, i) in buildLines(slots[idx]!, idx)" 
                       :key="i" 
                       class="line"
-                      :class="{ 'full-width': i < 3 || i === buildLines(slots[idx]!, idx).length - 1 }"
                     >
                       {{ line }}
                     </div>
@@ -287,6 +287,7 @@ const fields = reactive({
   dikte: false,
   perforatie: false,
   stuksDoos: false,
+  bundel: true,
   totaalStuks: false,
   dozenTotaal: false,
   beugel: false,
@@ -413,24 +414,32 @@ type FilledSlot = Exclude<LabelSlot, null>;
 function buildLines(slot: FilledSlot, idx: number) {
   const lines: string[] = [];
 
+  // Deze eerste 3 krijgen in de CSS 'full-width'
   if (fields.klant) lines.push(slot.klant);
   if (fields.orderRef) lines.push(`Order ${slot.orderId} · Ref ${slot.ref}`);
   if (fields.product) lines.push(slot.product);
+  
+  // De rest gaat in 2 kolommen
   if (fields.formaat) lines.push(`Formaat: ${slot.formaat}`);
   if (fields.leverdatum) lines.push(`Leverdatum: ${slot.leverdatum}`);
   if (fields.artikel) lines.push(`Art.nr: ${slot.artikel}`);
   if (fields.status) lines.push(`Status: ${slot.status}`);
   if (fields.datum) lines.push(`Datum: ${todayText.value}`);
 
-  // ✅ extra velden (uit orders_api), alleen als aanwezig
   const order = orders.value.find((o) => o.order_id === slot.orderId);
 
   if (order) {
-    if (fields.materiaal && order.materiaal) lines.push(`Materiaal: ${order.materiaal}`);
+    if (fields.materiaal && order.materiaal) lines.push(`Mat: ${order.materiaal}`);
     if (fields.dikte && order.dikte_micron != null) lines.push(`Dikte: ${order.dikte_micron} µm`);
-    if (fields.perforatie && order.perforatie_type) lines.push(`Perforatie: ${order.perforatie_type}`);
-    if (fields.stuksDoos && order.stuks_per_doos != null) lines.push(`Stuks/doos: ${order.stuks_per_doos}`);
-    if (fields.totaalStuks && order.totaal_aantal_stuks != null) lines.push(`Totaal stuks: ${order.totaal_aantal_stuks}`);
+    if (fields.perforatie && order.perforatie_type) lines.push(`Perf: ${order.perforatie_type}`);
+    if (fields.stuksDoos && order.stuks_per_doos != null) lines.push(`Doos: ${order.stuks_per_doos}`);
+    
+    // ✅ Bundel info toegevoegd
+    if (fields.bundel && order.stuks_per_bundel != null) {
+      lines.push(`Bundel: ${order.stuks_per_bundel} st.`);
+    }
+
+    if (fields.totaalStuks && order.totaal_aantal_stuks != null) lines.push(`Totaal: ${order.totaal_aantal_stuks}`);
 
     if (fields.dozenTotaal && order.stuks_per_doos && order.totaal_aantal_stuks) {
       const totalBoxes = Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos);
@@ -444,10 +453,9 @@ function buildLines(slot: FilledSlot, idx: number) {
 
   if (fields.doosnummer && (template.value === "8" || template.value === "16")) {
     const doosNr = (doosStart.value || 1) + idx;
-    lines.push(`Doos: ${doosNr}`);
+    lines.push(`Doosnummer: ${doosNr}`);
   }
 
-  // ✅ vrije tekst onderaan
   const extra = extraText.value.trim();
   if (extra) lines.push(extra);
 
@@ -580,10 +588,17 @@ button.primary{background:#2563eb;color:#fff;}
 
 .label-body {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Twee kolommen */
+  grid-template-columns: 1fr 1fr;
   column-gap: 4mm;
-  row-gap: 0.5mm;
+  row-gap: 1mm;
   align-content: start;
+}
+
+.line:nth-child(-n+3) {
+  grid-column: span 2; 
+  font-weight: bold;
+  border-bottom: 0.5px solid #eee; /* Optioneel: een dun lijntje eronder */
+  margin-bottom: 2px;
 }
 
 .line.full-width {
@@ -657,12 +672,31 @@ button.primary{background:#2563eb;color:#fff;}
   padding: 2mm 3mm;
 }
 
+.label-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Verdeelt de rest in 2 kolommen */
+  column-gap: 2mm;
+  row-gap: 0.5mm;
+  align-content: start;
+}
+
+.line:nth-child(1),
+.line:nth-child(2),
+.line:nth-child(3) {
+  grid-column: span 2;
+  font-weight: bold;
+  border-bottom: 0.2mm solid #eee;
+  margin-bottom: 1px;
+}
+
 .label-plain{border:none;}
 
 .line {
+  font-size: 9pt;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
 .empty{
@@ -676,7 +710,7 @@ button.primary{background:#2563eb;color:#fff;}
 /* auto font sizing */
 .f-normal .line { font-size: 10pt; line-height: 1.3; }
 .f-small  .line { font-size: 9pt;  line-height: 1.2; }
-.f-tiny   .line { font-size: 8pt;  line-height: 1.1; }
+.f-tiny   .line { font-size: 7.5pt;  line-height: 1.1; }
 
 /* ===================== Lufthansa label ===================== */
 .luf {

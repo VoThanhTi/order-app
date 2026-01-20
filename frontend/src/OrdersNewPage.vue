@@ -101,6 +101,11 @@
           </label>
 
           <label>
+            Stuks per bundel
+            <input v-model.number="form.stuks_per_bundel" type="number" min="0" />
+          </label>
+
+          <label>
             Totaal aantal stuks *
             <input v-model.number="form.totaal_aantal_stuks" type="number" min="1" />
           </label>
@@ -183,6 +188,7 @@ interface OrderForm {
   beugel_vorm: string;
   perforatie_type: string;
   stuks_per_doos: number | null;
+  stuks_per_bundel: number | null;
   totaal_aantal_stuks: number | null;
   totaal_aantal_meters: number | null;
   totaal_prijs: number | null;
@@ -224,6 +230,7 @@ const form = reactive<OrderForm>({
   beugel_vorm: "",
   perforatie_type: "",
   stuks_per_doos: null,
+  stuks_per_bundel: null,
   totaal_aantal_stuks: null,
   totaal_aantal_meters: null,
   totaal_prijs: null,
@@ -266,6 +273,7 @@ async function fillFromLastOrder(klantId: number) {
       form.beugel_vorm = data.beugel_vorm || "";
       form.perforatie_type = data.perforatie_type || "";
       form.stuks_per_doos = data.stuks_per_doos;
+      form.stuks_per_bundel = data.stuks_per_bundel;
       form.totaal_aantal_stuks = data.totaal_aantal_stuks;
       form.pallet_type = data.pallet_type || "";
       form.totaal_per_pallet = data.totaal_per_pallet;
@@ -343,6 +351,7 @@ function resetForm() {
   form.beugel_vorm = "";
   form.perforatie_type = "";
   form.stuks_per_doos = null;
+  form.stuks_per_bundel = null;
   form.totaal_aantal_stuks = null;
   form.totaal_aantal_meters = null;
   form.totaal_prijs = null;
@@ -386,6 +395,7 @@ async function createOrder() {
       beugel_vorm: form.beugel_vorm || null,
       perforatie_type: form.perforatie_type || null,
       stuks_per_doos: form.stuks_per_doos ?? 0,
+      stuks_per_bundel: form.stuks_per_bundel ?? 0,
       totaal_aantal_stuks: form.totaal_aantal_stuks ?? 0,
       totaal_aantal_meters: form.totaal_aantal_meters ?? 0,
       totaal_prijs: form.totaal_prijs ?? 0,
