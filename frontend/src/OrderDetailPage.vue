@@ -6,14 +6,13 @@
       </div>
 
       <div class="title">
-        <h1>
+        <h1 style="color: #111827">
           Orderdetails – #{{ localOrder.order_id }}
           <span v-if="displayKlantNaam">– {{ displayKlantNaam }}</span>
         </h1>
       </div>
 
       <div class="right">
-        <!-- NEW: PRINT BUTTONS -->
         <button class="print-btn" @click="printWerkbon" :disabled="!localOrder">Print werkbon</button>
         <button class="confirm-btn" @click="printOrderbevestiging" :disabled="!localOrder">
           Orderbevestiging
@@ -26,18 +25,21 @@
       </div>
     </section>
 
-    <!-- NEW: document velden (bewerken voor prints) -->
     <section class="card">
-      <h2>Documentgegevens (Orderbevesteging)</h2>
+      <h2>Prijsinstellingen (voor bevestiging)</h2>
       <div class="grid">
         <div class="field">
-          <span class="label">Bedrukking</span>
-          <input v-model="docFields.bedrukking" type="text" placeholder="bijv. 1 kleur / logo / geen" />
+          <span class="label">Eenheid type</span>
+          <select v-model="docFields.prijsEenheidType">
+            <option value="per 1.000 stuks">per 1.000 stuks</option>
+            <option value="per Kg">per Kg</option>
+            <option value="per 1 m2">per 1 m2</option>
+          </select>
         </div>
 
         <div class="field">
-          <span class="label">Stuks per beugel</span>
-          <input v-model="docFields.stuksPerBeugel" type="text" placeholder="bijv. 23" />
+          <span class="label">Aantal (x)</span>
+          <input v-model.number="docFields.berekenAantal" type="number" step="0.01" placeholder="bijv. 12" />
         </div>
 
         <div class="field">
@@ -46,28 +48,29 @@
         </div>
 
         <div class="field">
-          <span class="label">Extra omschrijving</span>
-          <input v-model="docFields.extraOmschrijving" type="text" placeholder="komt extra op de bevestiging" />
+          <span class="label">Totaalprijs (€)</span>
+          <span class="value" style="font-weight: bold; color: #16a34a; font-size: 1.1rem;">
+            € {{ formatMoney(totaalPrijs) }}
+          </span>
         </div>
 
-        <div class="field">
-          <span class="label">Totaalprijs (€)</span>
-          <span class="value">{{ formatMoney(totaalPrijs) }}</span>
+        <div class="field full">
+          <span class="label">Extra omschrijving op bevestiging</span>
+          <input v-model="docFields.extraOmschrijving" type="text" placeholder="Extra tekst onderaan de bevestiging..." />
         </div>
       </div>
     </section>
 
-    <!-- VIEW -->
     <template v-if="!isEditing">
       <section class="card">
         <h2>Algemeen</h2>
         <div class="grid">
           <div class="field"><span class="label">Interne referentie</span><span class="value">{{ localOrder.interne_referentie ?? "-" }}</span></div>
-          <div class="field"><span class="label">Klant</span><span class="value">{{ displayKlantNaam }} (ID: {{ localOrder.klant_id ?? "-" }})</span></div>
+          <div class="field"><span class="label">Klant</span><span class="value">{{ displayKlantNaam }}</span></div>
           <div class="field"><span class="label">Klant ordernr</span><span class="value">{{ localOrder.klant_order_nummer ?? "-" }}</span></div>
           <div class="field"><span class="label">Artikelnr klant</span><span class="value">{{ localOrder.klant_artikel_nummer ?? "-" }}</span></div>
-          <div class="field"><span class="label">Orderdatum</span><span class="value">{{ localOrder.order_datum ?? "-" }}</span></div>
-          <div class="field"><span class="label">Geplande leverdatum</span><span class="value">{{ localOrder.geplande_lever_datum ?? "-" }}</span></div>
+          <div class="field"><span class="label">Orderdatum</span><span class="value">{{ formatDate(localOrder.order_datum) }}</span></div>
+          <div class="field"><span class="label">Geplande leverdatum</span><span class="value">{{ formatDate(localOrder.geplande_lever_datum) }}</span></div>
           <div class="field"><span class="label">Status</span><span class="value">{{ localOrder.status ?? "-" }}</span></div>
         </div>
       </section>
@@ -76,20 +79,25 @@
         <h2>Productinformatie</h2>
         <div class="grid">
           <div class="field"><span class="label">Productnaam</span><span class="value">{{ localOrder.product_naam ?? "-" }}</span></div>
+          <div class="field"><span class="label">Product Type</span><span class="value">{{ localOrder.product_type ?? "-" }}</span></div>
+          
           <div class="field"><span class="label">Formaat</span><span class="value">{{ localOrder.formaat ?? "-" }}</span></div>
           <div class="field"><span class="label">Materiaal</span><span class="value">{{ localOrder.materiaal ?? "-" }}</span></div>
           <div class="field"><span class="label">Dikte (µm)</span><span class="value">{{ localOrder.dikte_micron ?? "-" }}</span></div>
+          <div class="field"><span class="label">Bedrukking</span><span class="value">{{ localOrder.bedrukking || "Geen" }}</span></div>
+          
+          <div class="field"><span class="label">Perforatie</span><span class="value">{{ localOrder.perforatie_type ?? "-" }}</span></div>
+          <div class="field"><span class="label">Beugel</span><span class="value">{{ localOrder.beugel_vorm }} ({{ localOrder.beugel_maat }})</span></div>
+          
           <div class="field"><span class="label">Stuks per doos</span><span class="value">{{ localOrder.stuks_per_doos ?? "-" }}</span></div>
           <div class="field"><span class="label">Stuks per bundel</span><span class="value">{{ localOrder.stuks_per_bundel ?? "-" }}</span></div> 
           <div class="field"><span class="label">Totaal aantal stuks</span><span class="value">{{ localOrder.totaal_aantal_stuks ?? "-" }}</span></div>
-          <div class="field"><span class="label">Geproduceerde dozen</span><span class="value">{{ localOrder.geproduceerde_dozen ?? 0 }}</span></div>
-          <div class="field"><span class="label">Perforatie</span><span class="value">{{ localOrder.perforatie_type ?? "-" }}</span></div>
-          <div class="field"><span class="label">Beugel maat</span><span class="value">{{ localOrder.beugel_maat ?? "-" }}</span></div>
-          <div class="field"><span class="label">Beugel vorm</span><span class="value">{{ localOrder.beugel_vorm ?? "-" }}</span></div>
+          
+          <div class="field"><span class="label">Pallet Type</span><span class="value">{{ localOrder.pallet_type ?? "-" }}</span></div>
+          <div class="field"><span class="label">Totaal per pallet</span><span class="value">{{ localOrder.totaal_per_pallet ?? "-" }}</span></div>
+
           <div class="field"><span class="label">Etiket formaat</span><span class="value">{{ localOrder.etiket_format ?? "-" }}</span></div>
-          <div class="field"><span class="label">Rows per rol</span><span class="value">{{ localOrder.rows_per_rol ?? "-" }}</span></div>
-          <div class="field"><span class="label">Rol gewicht (g)</span><span class="value">{{ localOrder.rollen_gewicht_gram ?? "-" }}</span></div>
-          <div class="field"><span class="label">Rol lengte (m)</span><span class="value">{{ localOrder.rol_lengte ?? "-" }}</span></div>
+          <div class="field"><span class="label">Rol gewicht / Lengte / Rows</span><span class="value">{{ localOrder.rollen_gewicht_gram }}g / {{ localOrder.rol_lengte }}m / {{ localOrder.rows_per_rol }}</span></div>
         </div>
       </section>
 
@@ -99,11 +107,9 @@
       </section>
     </template>
 
-    <!-- EDIT -->
     <template v-else>
       <section class="card">
         <h2>Order bewerken</h2>
-
         <form class="form" @submit.prevent="saveChanges">
           <div class="grid">
             <div class="field"><span class="label">Interne referentie</span><input v-model="localOrder.interne_referentie" type="text" /></div>
@@ -123,13 +129,20 @@
             </div>
 
             <div class="field"><span class="label">Productnaam</span><input v-model="localOrder.product_naam" type="text" /></div>
+            <div class="field"><span class="label">Product Type</span><input v-model="localOrder.product_type" type="text" placeholder="bv. Beugelzak" /></div>
+            
             <div class="field"><span class="label">Formaat</span><input v-model="localOrder.formaat" type="text" /></div>
             <div class="field"><span class="label">Materiaal</span><input v-model="localOrder.materiaal" type="text" /></div>
             <div class="field"><span class="label">Dikte (µm)</span><input v-model.number="localOrder.dikte_micron" type="number" min="0" /></div>
+            <div class="field"><span class="label">Bedrukking</span><input v-model="localOrder.bedrukking" type="text" /></div>
+
             <div class="field"><span class="label">Stuks per doos</span><input v-model.number="localOrder.stuks_per_doos" type="number" min="0" /></div>
             <div class="field"><span class="label">Stuks per bundel</span><input v-model.number="localOrder.stuks_per_bundel" type="number" min="0" /></div>
             <div class="field"><span class="label">Totaal aantal stuks</span><input v-model.number="localOrder.totaal_aantal_stuks" type="number" min="0" /></div>
             <div class="field"><span class="label">Geproduceerde dozen</span><input v-model.number="localOrder.geproduceerde_dozen" type="number" min="0" /></div>
+
+            <div class="field"><span class="label">Pallet Type</span><input v-model="localOrder.pallet_type" type="text" placeholder="bv. Europallet" /></div>
+            <div class="field"><span class="label">Totaal per pallet</span><input v-model.number="localOrder.totaal_per_pallet" type="number" min="0" /></div>
 
             <div class="field"><span class="label">Perforatie type</span><input v-model="localOrder.perforatie_type" type="text" /></div>
             <div class="field"><span class="label">Beugel maat</span><input v-model="localOrder.beugel_maat" type="text" /></div>
@@ -146,7 +159,7 @@
           </div>
 
           <div class="actions">
-            <button type="submit" :disabled="saving">{{ saving ? "Opslaan..." : "Wijzigingen opslaan" }}</button>
+            <button type="submit" :disabled="saving" class="confirm-btn">{{ saving ? "Opslaan..." : "Wijzigingen opslaan" }}</button>
             <button type="button" class="cancel-btn" @click="cancelEdit" :disabled="saving">Annuleren</button>
             <span v-if="error" class="error">{{ error }}</span>
             <span v-if="success" class="success">{{ success }}</span>
@@ -191,10 +204,10 @@ const success = ref<string | null>(null);
 
 const localOrder = ref<Order | null>(null);
 
-/** NEW: doc velden voor orderbevestiging (lokaal per order) */
+/** Document velden voor orderbevestiging */
 const docFields = ref({
-  bedrukking: "",
-  stuksPerBeugel: "",
+  prijsEenheidType: "per 1.000 stuks",
+  berekenAantal: 0,
   prijsPerEenheid: 0,
   extraOmschrijving: "",
 });
@@ -222,19 +235,18 @@ watch(
       klantNaam.value = null;
     }
 
-    // load doc fields per order
+    // Doc fields inladen en default aantal berekenen
     loadDocFields();
+    if (localOrder.value && docFields.value.berekenAantal === 0) {
+        // Slimme default: als het 1000 stuks is, deel door 1000
+        const totaal = localOrder.value.totaal_aantal_stuks || 0;
+        docFields.value.berekenAantal = totaal > 0 ? totaal / 1000 : 0;
+    }
   },
   { immediate: true }
 );
 
-watch(
-  docFields,
-  () => {
-    saveDocFields();
-  },
-  { deep: true }
-);
+watch(docFields, () => saveDocFields(), { deep: true });
 
 const displayKlantNaam = computed(() => {
   if (!localOrder.value) return null;
@@ -247,23 +259,14 @@ const klantObj = computed<Klant | null>(() => {
   return klanten.value.find((k) => k.klant_id === localOrder.value!.klant_id) ?? null;
 });
 
-const klantAdres = computed(() => {
-  const k = klantObj.value;
-  if (!k) return "";
-  const parts = [
-    k.straat && k.huisnummer ? `${k.straat} ${k.huisnummer}` : null,
-    k.postcode && k.plaats ? `${k.postcode} ${k.plaats}` : null,
-    k.land ? k.land : null,
-  ].filter(Boolean);
-  return parts.join(", ");
-});
-
 const totaalPrijs = computed(() => {
-  const aantal = Number(localOrder.value?.totaal_aantal_stuks ?? 0);
+  const aantal = Number(docFields.value.berekenAantal ?? 0);
   const prijs = Number(docFields.value.prijsPerEenheid ?? 0);
   if (!aantal || !prijs) return 0;
   return Math.round(aantal * prijs * 100) / 100;
 });
+
+/* --------------- CRUD ACTIES --------------- */
 
 function cancelEdit() {
   if (props.order) localOrder.value = { ...props.order };
@@ -289,14 +292,19 @@ async function saveChanges() {
       status: (localOrder.value.status ?? "OPEN") as any,
 
       product_naam: localOrder.value.product_naam ?? null,
+      product_type: localOrder.value.product_type ?? null, // NIEUW
       formaat: localOrder.value.formaat ?? null,
       materiaal: localOrder.value.materiaal ?? null,
       dikte_micron: localOrder.value.dikte_micron ?? 0,
+      bedrukking: localOrder.value.bedrukking ?? null,
 
       stuks_per_doos: localOrder.value.stuks_per_doos ?? 0,
       stuks_per_bundel: localOrder.value.stuks_per_bundel ?? 0,
       totaal_aantal_stuks: localOrder.value.totaal_aantal_stuks ?? 0,
       geproduceerde_dozen: localOrder.value.geproduceerde_dozen ?? 0,
+      
+      pallet_type: localOrder.value.pallet_type ?? null, // NIEUW
+      totaal_per_pallet: localOrder.value.totaal_per_pallet ?? 0, // NIEUW
 
       perforatie_type: localOrder.value.perforatie_type ?? null,
       beugel_maat: localOrder.value.beugel_maat ?? null,
@@ -326,26 +334,20 @@ async function saveChanges() {
 
 async function deleteOrderFn() {
   if (!localOrder.value) return;
-
   const sure = window.confirm(`Weet je zeker dat je order #${localOrder.value.order_id} wilt verwijderen?`);
   if (!sure) return;
-
   deleting.value = true;
-  error.value = null;
-  success.value = null;
-
   try {
     await deleteOrder(localOrder.value.order_id);
     emit("deleted");
   } catch (e: any) {
-    console.error(e);
     error.value = e?.message ?? "Kon order niet verwijderen";
   } finally {
     deleting.value = false;
   }
 }
 
-/* ------------------ PRINT HELPERS ------------------ */
+/* ------------------ PRINT FUNCTIES ------------------ */
 
 function escapeHtml(input: any) {
   const s = String(input ?? "");
@@ -360,8 +362,7 @@ function escapeHtml(input: any) {
 function formatDate(value: string | null | undefined) {
   if (!value) return "-";
   const [y, m, d] = String(value).split("-");
-  if (!y || !m || !d) return String(value);
-  return `${d}-${m}-${y}`;
+  return (y && m && d) ? `${d}-${m}-${y}` : String(value);
 }
 
 function formatMoney(n: number) {
@@ -369,166 +370,169 @@ function formatMoney(n: number) {
 }
 
 function openPrintWindow(title: string, bodyHtml: string) {
-  const w = window.open("", "_blank", "width=900,height=1000");
+  const w = window.open("", "_blank");
   if (!w) return;
-
-  const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(title)}</title>
-  <style>
-    @page { size: A4; margin: 12mm; }
-    body { font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; margin:0; }
-    h1,h2 { margin: 0 0 8px 0; }
-    .muted { color:#444; font-size:12px; }
-    .row { display:flex; gap:16px; justify-content:space-between; }
-    .box { border:1px solid #000; padding:10px; border-radius:6px; }
-    table { width:100%; border-collapse:collapse; font-size:12px; }
-    th, td { border:1px solid #000; padding:6px; vertical-align:top; }
-    th { background:#eee; text-align:left; }
-    .no-border td { border:none; padding:2px 0; }
-    .right { text-align:right; }
-    .title { text-align:center; letter-spacing:2px; margin:12px 0; }
-    .spacer { height:10px; }
-  </style>
-</head>
-<body>
-${bodyHtml}
-</body>
-</html>`;
-
-  w.document.open();
-  w.document.write(html);
+  w.document.write(`
+    <!doctype html>
+    <html>
+    <head>
+      <title>${escapeHtml(title)}</title>
+      <style>
+        @page { size: A4; margin: 12mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; margin:0; }
+        h1,h2 { margin: 0 0 5px 0; }
+        .muted { color:#444; font-size:11px; }
+        .row { display:flex; gap:16px; justify-content:space-between; }
+        .box { border:1px solid #000; padding:10px; border-radius:4px; }
+        table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+        th, td { border:1px solid #000; padding:6px; vertical-align:top; text-align:left; }
+        th { background:#eee; }
+        .no-border td { border:none; padding:2px 0; }
+        .right { text-align:right; }
+        .spacer { height:15px; }
+      </style>
+    </head>
+    <body>
+      ${bodyHtml}
+      <script>
+         setTimeout(() => { window.print(); }, 500);
+      <\/script>
+    </body>
+    </html>
+  `);
   w.document.close();
-
-  // Wachten tot window ready is, dan printen
-  w.onload = () => {
-    setTimeout(() => {
-      try {
-        w.focus();
-        w.print();
-      } catch {}
-    }, 50);
-  };
 }
 
-
-/** 1) Werkbon voor operators */
+/** 1) WERKBON (Fixed) */
 function printWerkbon() {
   if (!localOrder.value) return;
-
   const o = localOrder.value;
-  const klantNaamText = displayKlantNaam.value ?? "-";
-  const adres = klantAdres.value || "-";
+  // Veilig ophalen gegevens (ook als klantenlijst nog laadt)
+  const kNaam = displayKlantNaam.value || "Onbekend";
+  const kObj = klantObj.value;
+  const adres = kObj 
+    ? [kObj.straat, kObj.huisnummer, kObj.postcode, kObj.plaats].filter(Boolean).join(" ")
+    : "";
 
   const stuks = Number(o.totaal_aantal_stuks ?? 0);
   const perDoos = Number(o.stuks_per_doos ?? 0);
-  const dozen = stuks && perDoos ? Math.ceil(stuks / perDoos) : "-";
+  const dozen = (stuks && perDoos) ? Math.ceil(stuks / perDoos) : "-";
 
   const html = `
     <div class="box">
       <div class="row">
         <div>
           <h2>PETERS VERPAKKINGEN B.V.</h2>
-          <div class="muted">Werkbon (operators)</div>
+          <div class="muted">Werkbon (Interne Productie)</div>
         </div>
         <div class="right">
           <div><b>Order #</b> ${escapeHtml(o.order_id)}</div>
-          <div><b>Ref</b> ${escapeHtml(o.interne_referentie ?? "-")}</div>
-          <div><b>Leverdatum</b> ${escapeHtml(formatDate(o.geplande_lever_datum))}</div>
+          <div><b>Ref:</b> ${escapeHtml(o.interne_referentie ?? "-")}</div>
         </div>
       </div>
-
       <div class="spacer"></div>
-
       <div class="row">
         <div class="box" style="flex:1;">
           <b>Klant</b><br/>
-          ${escapeHtml(klantNaamText)}<br/>
-          ${escapeHtml(adres)}
+          ${escapeHtml(kNaam)}<br/>
+          <span class="muted">${escapeHtml(adres)}</span>
         </div>
         <div class="box" style="flex:1;">
           <b>Product</b><br/>
           ${escapeHtml(o.product_naam ?? "-")}<br/>
-          <span class="muted">Formaat:</span> ${escapeHtml(o.formaat ?? "-")}<br/>
-          <span class="muted">Materiaal/dikte:</span> ${escapeHtml(o.materiaal ?? "-")} / ${escapeHtml(o.dikte_micron ?? "-")} µm<br/>
-          <span class="muted">Perforatie:</span> ${escapeHtml(o.perforatie_type ?? "-")}<br/>
-          <span class="muted">Beugel:</span> ${escapeHtml(o.beugel_vorm ?? "-")} (${escapeHtml(o.beugel_maat ?? "-")})
+          Type: ${escapeHtml(o.product_type ?? "-")}<br/>
+          Formaat: ${escapeHtml(o.formaat ?? "-")}<br/>
+          Materiaal: ${escapeHtml(o.materiaal ?? "-")} (${escapeHtml(o.dikte_micron ?? "-")} µm)
         </div>
       </div>
-
       <div class="spacer"></div>
+      
+      <table>
+        <thead>
+           <tr><th>Bedrukking</th><th>Perforatie</th><th>Beugel</th><th>Etiket</th></tr>
+        </thead>
+        <tbody>
+           <tr>
+             <td>${escapeHtml(o.bedrukking || "Geen")}</td>
+             <td>${escapeHtml(o.perforatie_type || "-")}</td>
+             <td>${escapeHtml(o.beugel_vorm || "-")} (${escapeHtml(o.beugel_maat || "-")})</td>
+             <td>${escapeHtml(o.etiket_format || "-")}</td>
+           </tr>
+        </tbody>
+      </table>
 
       <table>
         <thead>
           <tr>
-            <th>Aantal stuks</th>
-            <th>Stuks/doos</th>
-            <th>Stuks/bundel</th> <th>Totaal dozen</th>
-            <th>Geproduceerde dozen</th>
-            <th>Status</th>
+            <th>Totaal stuks</th>
+            <th>Inhoud doos</th>
+            <th>Dozen (calc)</th>
+            <th>Pallet Type</th>
+            <th>Stuks/Pallet</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>${escapeHtml(stuks || "-")}</td>
-            <td>${escapeHtml(perDoos || "-")}</td>
-            <td>${escapeHtml(o.stuks_per_bundel || "-")}</td> <td>${escapeHtml(dozen)}</td>
-            <td>${escapeHtml(o.geproduceerde_dozen ?? 0)}</td>
-            <td>${escapeHtml(o.status ?? "-")}</td>
+            <td><b>${escapeHtml(stuks)}</b></td>
+            <td>${escapeHtml(perDoos)} st/ds</td>
+            <td>${escapeHtml(dozen)}</td>
+            <td>${escapeHtml(o.pallet_type || "-")}</td>
+            <td>${escapeHtml(o.totaal_per_pallet || "-")}</td>
           </tr>
         </tbody>
       </table>
 
       <div class="spacer"></div>
-
       <div class="box">
-        <b>Notities</b><br/>
-        ${escapeHtml(o.notities ?? "Geen notities.")}
+        <b>Notities:</b><br/>
+        ${escapeHtml(o.notities ?? "Geen bijzonderheden.")}
       </div>
-
       <div class="spacer"></div>
+      <div class="muted">Geprint op: ${new Date().toLocaleString()}</div>
     </div>
   `;
-
-  openPrintWindow(`Werkbon Order #${o.order_id}`, html);
+  openPrintWindow(`Werkbon #${o.order_id}`, html);
 }
 
-/** 2) Orderbevestiging (jouw PDF velden) */
+/** 2) ORDERBEVESTIGING */
 function printOrderbevestiging() {
   if (!localOrder.value) return;
-
   const o = localOrder.value;
+  const kObj = klantObj.value;
 
   const html = `
-    <div class="box">
-      <h2 style="text-align:center;">Orderbevestiging</h2>
+    <div style="padding:10px;">
+      <div class="row">
+        <div>
+          <h2 style="margin:0;">PETERS VERPAKKINGEN B.V.</h2>
+          <div style="font-size:11px; line-height:1.4;">
+            Groothandelsmarkt 5, 1681 NS Zwaagdijk-Oost<br/>
+            Tel: 072-5612404 · E-mail: info@thermobag.com
+          </div>
+        </div>
+        <div class="right">
+          <h2 style="margin:0; color:#444;">ORDERBEVESTIGING</h2>
+          <div style="font-size:12px;">Datum: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </div>
 
-      <table class="no-border" style="width:100%; margin-top:6px;">
-        <tr>
-          <td><b>Ordernummer</b></td><td>${escapeHtml(o.interne_referentie ?? o.order_id)}</td>
-          <td class="right"><b>Order datum</b></td><td class="right">${escapeHtml(formatDate(o.order_datum))}</td>
-        </tr>
-        <tr>
-          <td><b>Art. # klant</b></td><td>${escapeHtml(o.klant_artikel_nummer ?? "-")}</td>
-          <td class="right"><b>Order leverdatum</b></td><td class="right">${escapeHtml(formatDate(o.geplande_lever_datum))}</td>
-        </tr>
-      </table>
-
-      <div class="spacer"></div>
+      <hr style="margin:15px 0; border:0; border-top:1px solid #000;" />
 
       <div class="row">
-        <div class="box" style="flex:1;">
-          <b>Klant</b><br/>
-          ${escapeHtml(displayKlantNaam.value ?? "-")}<br/>
-          ${escapeHtml(klantAdres.value || "-")}
+        <div class="box" style="width:48%;">
+          <div class="muted">Klant:</div>
+          <b>${escapeHtml(displayKlantNaam.value)}</b><br/>
+          ${escapeHtml(kObj?.straat || "")} ${escapeHtml(kObj?.huisnummer || "")}<br/>
+          ${escapeHtml(kObj?.postcode || "")} ${escapeHtml(kObj?.plaats || "")}<br/>
+          ${escapeHtml(kObj?.land || "")}
         </div>
-
-        <div class="box" style="flex:1;">
-          <b>Bedrukking</b><br/>
-          ${escapeHtml(docFields.value.bedrukking || "-")}<br/>
-          ${docFields.value.extraOmschrijving ? `<div class="muted">${escapeHtml(docFields.value.extraOmschrijving)}</div>` : ""}
+        <div class="box" style="width:48%;">
+          <table class="no-border" style="width:100%; font-size:12px;">
+             <tr><td><b>Uw referentie:</b></td><td>${escapeHtml(o.klant_order_nummer || "-")}</td></tr>
+             <tr><td><b>Ons ordernr:</b></td><td>${escapeHtml(o.interne_referentie || o.order_id)}</td></tr>
+             <tr><td><b>Orderdatum:</b></td><td>${formatDate(o.order_datum)}</td></tr>
+             <tr><td><b>Leverdatum:</b></td><td>${formatDate(o.geplande_lever_datum)}</td></tr>
+          </table>
         </div>
       </div>
 
@@ -537,18 +541,24 @@ function printOrderbevestiging() {
       <table>
         <thead>
           <tr>
-            <th>Produkt ID</th>
-            <th>Product type</th>
-            <th>Materiaal en dikte</th>
-            <th>Formaat</th>
+            <th>Productomschrijving</th>
+            <th>Type</th>
+            <th>Specificaties</th>
+            <th>Aantal</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>${escapeHtml(o.klant_artikel_nummer ?? o.interne_referentie ?? o.order_id)}</td>
-            <td>${escapeHtml(o.product_naam ?? "-")}</td>
-            <td>${escapeHtml(o.materiaal ?? "-")} ${escapeHtml(o.dikte_micron ?? "-")} µm</td>
-            <td>${escapeHtml(o.formaat ?? "-")}</td>
+            <td>
+              <b>${escapeHtml(o.product_naam)}</b><br/>
+              <span class="muted">Bedrukking:</span> ${escapeHtml(o.bedrukking || "Geen")}
+            </td>
+            <td>${escapeHtml(o.product_type || "-")}</td>
+            <td>
+               ${escapeHtml(o.materiaal)} ${escapeHtml(o.dikte_micron)}µm<br/>
+               ${escapeHtml(o.formaat)}
+            </td>
+            <td>${escapeHtml(o.totaal_aantal_stuks)} stuks</td>
           </tr>
         </tbody>
       </table>
@@ -558,51 +568,39 @@ function printOrderbevestiging() {
       <table>
         <thead>
           <tr>
-            <th>Order aantal</th>
-            <th>Stuks/doos</th>
-            <th>Stuks/bundel</th> <th>Perforatie</th>
-            <th>Beugel</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>${escapeHtml(o.totaal_aantal_stuks ?? "-")}</td>
-            <td>${escapeHtml(o.stuks_per_doos ?? "-")}</td>
-            <td>${escapeHtml(o.stuks_per_bundel ?? "-")}</td> <td>${escapeHtml(o.perforatie_type ?? "-")}</td>
-            <td>${escapeHtml(o.beugel_vorm ?? "-")} (${escapeHtml(o.beugel_maat ?? "-")})</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="spacer"></div>
-
-      <table>
-        <thead>
-          <tr>
+            <th>Omschrijving eenheid</th>
+            <th>Aantal eenheden</th>
             <th>Prijs per eenheid</th>
-            <th>Prijs totaal</th>
+            <th>Totaal</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>€ ${escapeHtml(formatMoney(Number(docFields.value.prijsPerEenheid || 0)))}</td>
-            <td>€ ${escapeHtml(formatMoney(totaalPrijs.value))}</td>
+            <td>${escapeHtml(docFields.value.prijsEenheidType)}</td>
+            <td>${escapeHtml(docFields.value.berekenAantal)}</td>
+            <td>€ ${formatMoney(docFields.value.prijsPerEenheid)}</td>
+            <td style="font-weight:bold;">€ ${formatMoney(totaalPrijs.value)}</td>
           </tr>
         </tbody>
       </table>
 
-      <div class="spacer"></div>
+      ${docFields.value.extraOmschrijving ? `
+        <div class="spacer"></div>
+        <div class="box">
+           <div class="muted">Opmerking:</div>
+           ${escapeHtml(docFields.value.extraOmschrijving)}
+        </div>
+      ` : ''}
 
-      <div class="muted">
-        Dit document is gegenereerd vanuit het orderprogramma.
+      <div style="margin-top:40px; text-align:center; font-size:11px;">
+        Wij danken u voor uw order!
       </div>
     </div>
   `;
-
-  openPrintWindow(`Orderbevestiging Order #${o.order_id}`, html);
+  openPrintWindow(`Bevestiging #${o.order_id}`, html);
 }
 
-/* ------------------ DOCFIELDS STORAGE ------------------ */
+/* ------------------ STORAGE LOGIC ------------------ */
 
 function docKey() {
   const id = localOrder.value?.order_id;
@@ -612,31 +610,22 @@ function docKey() {
 function loadDocFields() {
   const key = docKey();
   if (!key) return;
-
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return;
     const parsed = JSON.parse(raw);
     docFields.value = {
-      bedrukking: parsed?.bedrukking ?? "",
-      stuksPerBeugel: parsed?.stuksPerBeugel ?? "",
-      prijsPerEenheid: Number(parsed?.prijsPerEenheid ?? 0),
-      extraOmschrijving: parsed?.extraOmschrijving ?? "",
+      prijsEenheidType: parsed.prijsEenheidType ?? "per 1.000 stuks",
+      berekenAantal: Number(parsed.berekenAantal ?? 0),
+      prijsPerEenheid: Number(parsed.prijsPerEenheid ?? 0),
+      extraOmschrijving: parsed.extraOmschrijving ?? "",
     };
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function saveDocFields() {
   const key = docKey();
-  if (!key) return;
-
-  try {
-    localStorage.setItem(key, JSON.stringify(docFields.value));
-  } catch {
-    // ignore
-  }
+  if (key) localStorage.setItem(key, JSON.stringify(docFields.value));
 }
 </script>
 
