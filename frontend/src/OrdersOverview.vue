@@ -23,7 +23,7 @@
               <th>Orderdatum</th>
               <th>Leverdatum</th>
               <th>Leverstatus</th>
-              <th>Dozen geproduceerd</th>
+              <!-- <th>Dozen geproduceerd</th> -->
               <th>Status</th>
             </tr>
           </thead>
@@ -53,11 +53,11 @@
               </td>
 
               <!-- dozen geproduceerd: inline +/- -->
-              <td class="produced-cell" @click.stop>
+              <!-- <td class="produced-cell" @click.stop>
                 <button class="circle-btn" type="button" @click.stop="changeProducedBoxes(order, -1)">–</button>
                 <span class="produced-text">{{ getProducedBoxesText(order) }}</span>
                 <button class="circle-btn" type="button" @click.stop="changeProducedBoxes(order, +1)">+</button>
-              </td>
+              </td> -->
 
               <!-- status: inline select -->
               <td class="status-cell" @click.stop>
@@ -189,44 +189,44 @@ function getDeliveryLabel(order: Order): string {
 }
 
 /* ===== DOZEN ===== */
-function totalBoxes(order: Order): number | null {
-  if (order.stuks_per_doos == null || order.totaal_aantal_stuks == null) return null;
-  if (order.stuks_per_doos <= 0 || order.totaal_aantal_stuks <= 0) return null;
-  return Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos);
-}
+// function totalBoxes(order: Order): number | null {
+//   if (order.stuks_per_doos == null || order.totaal_aantal_stuks == null) return null;
+//   if (order.stuks_per_doos <= 0 || order.totaal_aantal_stuks <= 0) return null;
+//   return Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos);
+// }
 
-function getProducedBoxesText(order: Order): string {
-  const total = totalBoxes(order);
-  const produced = order.geproduceerde_dozen ?? 0;
-  return total == null ? produced.toString() : `${produced} / ${total}`;
-}
+// function getProducedBoxesText(order: Order): string {
+//   const total = totalBoxes(order);
+//   const produced = order.geproduceerde_dozen ?? 0;
+//   return total == null ? produced.toString() : `${produced} / ${total}`;
+// }
 
-async function changeProducedBoxes(order: Order, delta: number) {
-  const index = orders.value.findIndex((o) => o.order_id === order.order_id);
-  if (index === -1) return;
+// async function changeProducedBoxes(order: Order, delta: number) {
+//   const index = orders.value.findIndex((o) => o.order_id === order.order_id);
+//   if (index === -1) return;
 
-  const current = orders.value[index];
-  if (!current) return;
+//   const current = orders.value[index];
+//   if (!current) return;
 
-  const produced = current.geproduceerde_dozen ?? 0;
-  const total = totalBoxes(current);
+//   const produced = current.geproduceerde_dozen ?? 0;
+//   const total = totalBoxes(current);
 
-  let newValue = produced + delta;
-  if (newValue < 0) newValue = 0;
-  if (total != null && newValue > total) newValue = total;
+//   let newValue = produced + delta;
+//   if (newValue < 0) newValue = 0;
+//   if (total != null && newValue > total) newValue = total;
 
-  // optimistic
-  orders.value.splice(index, 1, { ...current, geproduceerde_dozen: newValue });
+//   // optimistic
+//   orders.value.splice(index, 1, { ...current, geproduceerde_dozen: newValue });
 
-  try {
-    const updated = await updateOrder(order.order_id, { geproduceerde_dozen: newValue });
-    orders.value.splice(index, 1, updated);
-  } catch (e) {
-    // revert
-    orders.value.splice(index, 1, current);
-    console.warn(e);
-  }
-}
+//   try {
+//     const updated = await updateOrder(order.order_id, { geproduceerde_dozen: newValue });
+//     orders.value.splice(index, 1, updated);
+//   } catch (e) {
+//     // revert
+//     orders.value.splice(index, 1, current);
+//     console.warn(e);
+//   }
+// }
 
 async function changeStatus(order: Order, newStatus: OrderStatus) {
   const index = orders.value.findIndex((o) => o.order_id === order.order_id);

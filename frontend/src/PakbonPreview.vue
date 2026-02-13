@@ -1,12 +1,24 @@
 <template>
   <div class="pakbon-wrapper">
     <div class="pakbon-actions no-print">
-      <button @click="printPakbon">Pakbon + palletbon printen</button>
+      <!-- ✅ nieuw: aparte knoppen + pallets input -->
+      <button @click="doPrint('pakbon')">Print pakbon + palletbon</button>
+        <button class="primary" @click="doPrint('palletbon')">Print palletbon</button>
+
+      <div class="pallet-input">
+        <label>Aantal pallets</label>
+        <input
+          type="number"
+          min="1"
+          v-model.number="palletTotal"
+          @input="palletTotalTouched = true"
+        />
+      </div>
     </div>
 
     <div class="print-root pakbon-print">
-      <!-- PAGINA 1 -->
-      <section class="doc-page">
+      <!-- ✅ PAKBON (alleen niet bij palletbon-only print) -->
+      <section class="doc-page doc-pakbon" v-if="printTarget !== 'palletbon'">
         <div class="pakbon-card">
           <header class="pakbon-header">
             <div class="pakbon-company">
@@ -86,16 +98,28 @@
         </div>
       </section>
 
-      <!-- PAGINA 2 -->
-      <section class="doc-page page-break">
-        <PalletbonPreview :order="order" :klant="klant" :onsArtNr="onsArtNr" />
-      </section>
+      <!-- ✅ PALLETBON(NEN) (alleen niet bij pakbon-only print) -->
+      <template v-if="printTarget !== 'pakbon'">
+        <section
+          v-for="i in palletTotal"
+          :key="`palletbon-${i}`"
+          class="doc-page doc-palletbon"
+        >
+          <PalletbonPreview
+            :order="order"
+            :klant="klant"
+            :onsArtNr="onsArtNr"
+            :palletIndex="i"
+            :palletTotal="palletTotal"
+          />
+        </section>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, nextTick, watchEffect } from "vue";
 import type { Order, Klant } from "./services/db";
 import PalletbonPreview from "./PalletbonPreview.vue";
 
@@ -103,6 +127,20 @@ const props = defineProps<{
   order: Order;
   klant: Klant | null;
 }>();
+
+/** ✅ print target */
+const printTarget = ref<null | "pakbon" | "palletbon" | "both">(null);
+
+async function doPrint(kind: "pakbon" | "palletbon" | "both") {
+  printTarget.value = kind;
+  await nextTick();
+  window.print();
+  setTimeout(() => (printTarget.value = null), 300);
+}
+
+/** ✅ pallets input */
+const palletTotal = ref<number>(1);
+const palletTotalTouched = ref(false);
 
 const klantAdres = computed(() => {
   if (!props.klant) return "";
@@ -132,11 +170,23 @@ const totaalDozenText = computed(() => {
   return `${totalBoxes.value} dozen à ${props.order.stuks_per_doos} stuks`;
 });
 
+const computedPallets = computed(() => {
+  if (totalBoxes.value == null) return 1;
+  const dozenPerPallet = props.order.totaal_per_pallet || 36;
+  return Math.max(1, Math.ceil(totalBoxes.value / dozenPerPallet));
+});
+
+/** ✅ default pallets = berekend, maar NIET overschrijven als jij handmatig aanpast */
+watchEffect(() => {
+  if (!palletTotalTouched.value) {
+    palletTotal.value = computedPallets.value || 1;
+  }
+});
+
 const palletText = computed(() => {
   if (totalBoxes.value == null) return "";
   const dozenPerPallet = props.order.totaal_per_pallet || 36;
-  const pallets = Math.ceil(totalBoxes.value / dozenPerPallet);
-  return `${pallets} pallet(en) · ca. ${dozenPerPallet} dozen per pallet`;
+  return `${palletTotal.value} pallet(en) · ca. ${dozenPerPallet} dozen per pallet`;
 });
 
 function formatDate(value: string | null | undefined) {
@@ -145,10 +195,6 @@ function formatDate(value: string | null | undefined) {
   if (!y || !m || !d) return value;
   return `${d}-${m}-${y}`;
 }
-
-function printPakbon() {
-  window.print();
-}
 </script>
 
 <style>
@@ -156,12 +202,10 @@ function printPakbon() {
   margin-top: 0.5rem;
 }
 
-/* print root in scherm */
 .print-root {
   display: block;
 }
 
-/* Pakbon kaart */
 .pakbon-card {
   color: #000000;
   padding: 1.5rem;
@@ -249,6 +293,8 @@ function printPakbon() {
   margin-bottom: 0.75rem;
   display: flex;
   justify-content: flex-end;
+  gap: .6rem;
+  align-items: center;
 }
 
 .pakbon-actions button {
@@ -259,6 +305,38 @@ function printPakbon() {
   padding: 0.4rem 1rem;
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.pakbon-actions button.primary {
+  background: #111827;
+}
+
+.pakbon-actions button.secondary {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.pallet-input {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .25rem .6rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.pallet-input label {
+  font-size: .85rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.pallet-input input {
+  width: 70px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  padding: .3rem .55rem;
 }
 
 .no-print {
@@ -287,20 +365,17 @@ function printPakbon() {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* laatste pagina: geen extra lege pagina */
   .doc-page:last-child {
     break-after: auto;
     page-break-after: auto;
   }
 
-  .page-break {
-    break-before: page;
-    page-break-before: always;
-  }
-
   .pakbon-card {
     border-radius: 0 !important;
     margin: 0 !important;
-    border: none
+    border: none;
   }
 }
 </style>

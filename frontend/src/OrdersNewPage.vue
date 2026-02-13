@@ -21,6 +21,34 @@
             </select>
           </label>
 
+          <!-- ✅ Herhaalorder dropdown -->
+          <label>
+            Herhaalorder (template)
+            <select
+              v-model="selectedTemplateId"
+              :disabled="!form.klant_id || loadingTemplates || templates.length === 0"
+            >
+              <option value="">— kies een template —</option>
+              <option
+                v-for="t in templates"
+                :key="t.template_id"
+                :value="String(t.template_id)"
+              >
+                {{ t.naam }} — {{ t.formaat ?? "-" }} — {{ t.materiaal ?? "-" }} {{ t.dikte_micron ?? "" }}µm
+              </option>
+            </select>
+          </label>
+
+          <!-- ✅ Template naam -->
+          <label>
+            Template naam (voor opslaan)
+            <input
+              v-model="templateName"
+              type="text"
+              placeholder="Bijv. Bakingbag 350x550"
+            />
+          </label>
+
           <label>
             Interne referentie *
             <input v-model="form.interne_referentie" type="text" required />
@@ -150,9 +178,19 @@
           <button type="submit" :disabled="saving || !klanten.length">
             {{ saving ? "Opslaan..." : "Order opslaan" }}
           </button>
+
+          <!-- ✅ Opslaan als herhaalorder -->
+          <button
+            type="button"
+            @click="saveAsTemplate"
+            :disabled="saving || !form.klant_id"
+          >
+            Opslaan als herhaalorder
+          </button>
+
           <span v-if="error" class="error">{{ error }}</span>
           <span v-if="success" class="success">{{ success }}</span>
-          <span v-if="loadingKlanten" class="muted text-sm"> Data ophalen...</span>
+          <span v-if="loadingKlanten || loadingTemplates" class="muted text-sm"> Data ophalen...</span>
         </div>
       </form>
     </section>
@@ -203,14 +241,42 @@ interface OrderForm {
   gereed_voor_verzending: boolean;
 }
 
+/* ✅ Order templates */
+interface OrderTemplate {
+  template_id: number;
+  klant_id: number;
+  naam: string;
+
+  product_naam: string;
+  formaat: string | null;
+  product_type: string | null;
+  materiaal: string | null;
+  dikte_micron: number | null;
+  bedrukking: string | null;
+  beugel_maat: string | null;
+  beugel_vorm: string | null;
+  perforatie_type: string | null;
+  stuks_per_doos: number | null;
+  stuks_per_bundel: number | null;
+  totaal_aantal_stuks: number | null;
+  pallet_type: string | null;
+  totaal_per_pallet: number | null;
+  rollen_gewicht_gram: number | null;
+  rows_per_rol: number | null;
+  etiket_format: string | null;
+  rol_lengte: number | null;
+  notities: string | null;
+}
+
 const klanten = ref<Klant[]>([]);
 const loadingKlanten = ref(false);
+const loadingTemplates = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 
 // Vandaag als standaard datum voor nieuwe orders
-const today = new Date().toISOString().split('T')[0] as string;
+const today = new Date().toISOString().split("T")[0] as string;
 
 const form = reactive<OrderForm>({
   klant_id: "",
@@ -244,6 +310,106 @@ const form = reactive<OrderForm>({
   status: "OPEN",
   gereed_voor_verzending: false,
 });
+
+/* ✅ template state */
+const templates = ref<OrderTemplate[]>([]);
+const selectedTemplateId = ref<string>("");
+const templateName = ref<string>("");
+
+async function loadTemplates(klantId: number) {
+  loadingTemplates.value = true;
+  try {
+    const { data, error: e } = await supabase
+      .from("order_templates")
+      .select("*")
+      .eq("klant_id", klantId)
+      .order("naam", { ascending: true });
+
+    if (e) throw e;
+    templates.value = (data ?? []) as OrderTemplate[];
+  } catch (e: any) {
+    console.error("Fout bij laden templates:", e?.message);
+    templates.value = [];
+  } finally {
+    loadingTemplates.value = false;
+  }
+}
+
+function applyTemplate(t: OrderTemplate) {
+  form.product_naam = t.product_naam || "";
+  form.formaat = t.formaat || "";
+  form.product_type = t.product_type || "";
+  form.materiaal = t.materiaal || "";
+  form.dikte_micron = t.dikte_micron;
+  form.bedrukking = t.bedrukking || "";
+  form.beugel_maat = t.beugel_maat || "";
+  form.beugel_vorm = t.beugel_vorm || "";
+  form.perforatie_type = t.perforatie_type || "";
+  form.stuks_per_doos = t.stuks_per_doos;
+  form.stuks_per_bundel = t.stuks_per_bundel;
+  form.totaal_aantal_stuks = t.totaal_aantal_stuks;
+  form.pallet_type = t.pallet_type || "";
+  form.totaal_per_pallet = t.totaal_per_pallet;
+  form.rollen_gewicht_gram = t.rollen_gewicht_gram;
+  form.rows_per_rol = t.rows_per_rol;
+  form.etiket_format = t.etiket_format || "";
+  form.rol_lengte = t.rol_lengte;
+  form.notities = t.notities || "";
+}
+
+async function saveAsTemplate() {
+  error.value = null;
+  success.value = null;
+
+  if (!form.klant_id) {
+    error.value = "Kies eerst een klant";
+    return;
+  }
+  if (!form.product_naam.trim()) {
+    error.value = "Productnaam is verplicht (voor template)";
+    return;
+  }
+
+  const naam = templateName.value.trim() || form.product_naam.trim() || "Herhaalorder";
+
+  const payload = {
+    klant_id: form.klant_id,
+    naam,
+
+    product_naam: form.product_naam.trim(),
+    formaat: form.formaat || null,
+    product_type: form.product_type || null,
+    materiaal: form.materiaal || null,
+    dikte_micron: form.dikte_micron,
+    bedrukking: form.bedrukking || null,
+    beugel_maat: form.beugel_maat || null,
+    beugel_vorm: form.beugel_vorm || null,
+    perforatie_type: form.perforatie_type || null,
+    stuks_per_doos: form.stuks_per_doos,
+    stuks_per_bundel: form.stuks_per_bundel,
+    totaal_aantal_stuks: form.totaal_aantal_stuks,
+    pallet_type: form.pallet_type || null,
+    totaal_per_pallet: form.totaal_per_pallet,
+    rollen_gewicht_gram: form.rollen_gewicht_gram,
+    rows_per_rol: form.rows_per_rol,
+    etiket_format: form.etiket_format || null,
+    rol_lengte: form.rol_lengte,
+    notities: form.notities || null,
+  };
+
+  const { error: e } = await supabase.from("order_templates").insert(payload);
+
+  if (e) {
+    console.error(e);
+    error.value = e.message || "Fout bij opslaan template";
+    return;
+  }
+
+  success.value = `Herhaalorder opgeslagen: ${naam}`;
+  templateName.value = "";
+
+  await loadTemplates(form.klant_id as number);
+}
 
 /**
  * Automatisch velden vullen op basis van de laatste order van de gekozen klant
@@ -282,7 +448,7 @@ async function fillFromLastOrder(klantId: number) {
       form.etiket_format = data.etiket_format || "";
       form.rol_lengte = data.rol_lengte;
       form.notities = data.notities || "";
-      
+
       // Specifieke order-data maken we leeg voor een nieuwe invoer
       form.interne_referentie = "";
       form.klant_order_nummer = "";
@@ -295,11 +461,25 @@ async function fillFromLastOrder(klantId: number) {
   }
 }
 
-// Watcher die reageert op klantselectie
-watch(() => form.klant_id, (newVal) => {
-  if (newVal) {
-    fillFromLastOrder(newVal as number);
+// ✅ Watcher die reageert op klantselectie: last order + templates
+watch(
+  () => form.klant_id,
+  (newVal) => {
+    selectedTemplateId.value = "";
+    if (newVal) {
+      fillFromLastOrder(newVal as number);
+      loadTemplates(newVal as number);
+    } else {
+      templates.value = [];
+    }
   }
+);
+
+// ✅ Watcher voor template dropdown: apply template
+watch(selectedTemplateId, (id) => {
+  if (!id) return;
+  const t = templates.value.find((x) => String(x.template_id) === id);
+  if (t) applyTemplate(t);
 });
 
 async function loadKlanten() {
@@ -364,6 +544,10 @@ function resetForm() {
   form.notities = "";
   form.status = "OPEN";
   form.gereed_voor_verzending = false;
+
+  // template UI reset
+  selectedTemplateId.value = "";
+  templateName.value = "";
 }
 
 async function createOrder() {
@@ -500,6 +684,7 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .error {

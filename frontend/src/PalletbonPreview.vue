@@ -25,7 +25,7 @@
             <div v-if="klant?.land">{{ klant.land }}</div>
           </td>
           <td class="cell">
-            <div><strong>Pallet 1</strong></div>
+            <div><strong>Pallet {{ palletIndex }}/{{ palletTotal }}</strong></div>
             <div>Per pallet aantal dozen: {{ dozenPerPallet }}</div>
             <div>Totaal aantal dozen: {{ totalBoxes ?? "-" }}</div>
             <div>Art.nr.: {{ onsArtNr }}</div>
@@ -62,6 +62,10 @@ const props = defineProps<{
   order: Order;
   klant: Klant | null;
   onsArtNr: string;
+
+  // ✅ nieuw
+  palletIndex: number;  // 1..palletTotal
+  palletTotal: number;  // totaal pallets
 }>();
 
 const klantAdres = computed(() => {

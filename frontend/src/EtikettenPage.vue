@@ -36,7 +36,7 @@
           <div class="chips">
             <!-- basis -->
             <label class="chip"><input type="checkbox" v-model="fields.klant" />Klantnaam</label>
-            <label class="chip"><input type="checkbox" v-model="fields.orderRef" />Order + Ref</label>
+            <label class="chip"><input type="checkbox" v-model="fields.orderRef" />Order + klanten ordernummer</label>
             <label class="chip"><input type="checkbox" v-model="fields.product" />Product</label>
             <label class="chip"><input type="checkbox" v-model="fields.formaat" />Formaat</label>
             <label class="chip"><input type="checkbox" v-model="fields.leverdatum" />Leverdatum</label>
@@ -360,7 +360,7 @@ function addToNextSlot(o: Order) {
 
   const slot: LabelSlot = {
     orderId: o.order_id,
-    ref: o.interne_referentie ?? "-",
+    ref: o.klant_order_nummer ?? "-",
     klant: klantNaam(o.klant_id),
     product: o.product_naam ?? "-",
     formaat: o.formaat ?? "-",
@@ -403,11 +403,20 @@ const gridClass = computed(() => {
 
 const printScale = computed(() => {
   if (template.value === "16") return "0.985";
-  if (template.value === "2") return "0.99";
+  if (template.value === "2") return "0.96";   // iets kleiner zodat er witruimte ontstaat
   return "1";
 });
 
-const sheetStyle = computed(() => ({ "--printScale": printScale.value }) as Record<string, string>);
+const printOffset = computed(() => {
+  if (template.value === "2") return { x: "5mm", y: "5mm" }; // inset zoals afb 3
+  return { x: "0mm", y: "0mm" };
+});
+
+const sheetStyle = computed(() => ({
+  "--printScale": printScale.value,
+  "--printTx": printOffset.value.x,
+  "--printTy": printOffset.value.y,
+}) as Record<string, string>);
 
 type FilledSlot = Exclude<LabelSlot, null>;
 
@@ -416,7 +425,7 @@ function buildLines(slot: FilledSlot, idx: number) {
 
   // Deze eerste 3 krijgen in de CSS 'full-width'
   if (fields.klant) lines.push(slot.klant);
-  if (fields.orderRef) lines.push(`Order ${slot.orderId} · Ref ${slot.ref}`);
+  if (fields.orderRef) lines.push(`Order ${slot.orderId} · Klant order ${slot.ref}`);
   if (fields.product) lines.push(slot.product);
   
   // De rest gaat in 2 kolommen
@@ -731,48 +740,53 @@ button.primary{background:#2563eb;color:#fff;}
   text-align: center;
   border-bottom: 0.6mm solid #111;
   box-sizing: border-box;
+
+  /* afb 3: zwart vlak boven */
+  background: #000;
+  color: #fff;
 }
 
-.luf-title {
-  font-size: 17pt;
-  font-weight: 800;
-  line-height: 1;
-}
-.luf-sub {
-  margin-top: 1.6mm;
-  font-size: 10.5pt;
-  font-weight: 700;
-}
+.luf-title { color: #fff; }
+.luf-sub   { color: #fff; }
 
 .luf-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
   display: grid;
+
+  /* afb 3: links kleiner */
   grid-template-columns: 40% 60%;
 }
 
 .luf-left {
-  background: #222;
+  /* afb 3: wit vlak links */
+  background: #fff;
   border-right: 0.6mm solid #111;
 }
 
 .luf-right {
-  background: #2b2b2b;
-  color: #fff;
+  /* afb 3: wit vlak rechts met zwarte tekst */
+  background: #fff;
+  color: #111;
+
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
+/* ✅ lege paarse ruimte weg: rijen vullen de hoogte */
 .luf-row {
-  background: #2b2b2b;
-  border-bottom: 0.5mm solid rgba(255, 255, 255, 0.45);
+  background: #fff;
+  border-bottom: 0.5mm solid #111;
   padding: 3mm 3.5mm 2mm;
   display: flex;
   flex-direction: column;
   justify-content: center;
   box-sizing: border-box;
+
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .luf-row.luf-split {
@@ -780,21 +794,36 @@ button.primary{background:#2563eb;color:#fff;}
   border-bottom: none;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: #2b2b2b;
+  background: #fff;
+
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .luf-row.luf-split .luf-col {
-  background: #2b2b2b;
+  background: #fff;
   padding: 3mm 3.5mm 2mm;
   display: flex;
   flex-direction: column;
   justify-content: center;
   box-sizing: border-box;
-  border-right: 0.5mm solid rgba(255, 255, 255, 0.45);
-  border-bottom: 0.5mm solid rgba(255, 255, 255, 0.45);
+
+  border-right: 0.5mm solid #111;
+  border-bottom: 0.5mm solid #111;
 }
 .luf-row.luf-split .luf-col:last-child {
   border-right: none;
+}
+
+.luf-small {
+  font-size: 8.5pt;
+  opacity: 1;
+  margin-top: 0.8mm;
+  color: #111;
+}
+.luf-light {
+  font-weight: 500;
+  opacity: 1;
 }
 
 .luf-big {
@@ -807,15 +836,6 @@ button.primary{background:#2563eb;color:#fff;}
   font-weight: 800;
   line-height: 1.08;
 }
-.luf-small {
-  font-size: 8.5pt;
-  opacity: 0.95;
-  margin-top: 0.8mm;
-}
-.luf-light {
-  font-weight: 500;
-  opacity: 0.9;
-}
 
 .luf-foot {
   flex: 0 0 28mm;
@@ -826,15 +846,51 @@ button.primary{background:#2563eb;color:#fff;}
 }
 
 .luf-foot-left {
-  background: #2b2b2b;
-  color: #fff;
+  background: #fff;
+  color: #111;
   padding: 3.2mm;
   border-right: 0.6mm solid #111;
   box-sizing: border-box;
 
-  /* NEW: stabiel layouten */
   display: flex;
   flex-direction: column;
+}
+
+/* recycle groen zoals afb 3 (optioneel maar matcht mooi) */
+.luf-recycle-mark,
+.luf-recycle-code {
+  color: #16a34a;
+}
+
+.luf-foot-right {
+  background: #fff;
+  color: #111;
+
+  /* we maken de zwarte balk onderaan via de tekstblokken */
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
+}
+
+/* zwarte balk onderaan rechts */
+.luf-foot-right .luf-ster,
+.luf-foot-right .luf-small2 {
+  background: #000;
+  color: #fff;
+  padding: 0 5mm;
+  opacity: 1;
+}
+
+.luf-foot-right .luf-ster {
+  padding-top: 4mm;
+  padding-bottom: 1mm;
+}
+
+.luf-foot-right .luf-small2 {
+  margin-top: 0;
+  padding-bottom: 3.5mm;
 }
 
 .luf-mid2 {
@@ -857,18 +913,6 @@ button.primary{background:#2563eb;color:#fff;}
   display: flex;
   align-items: center;
   gap: 2.5mm;
-}
-.luf-recycle-mark { font-size: 16pt; }
-.luf-recycle-code { font-size: 8.5pt; font-weight: 700; }
-
-.luf-foot-right {
-  background: #fff;
-  color: #111;
-  padding: 5mm 5mm 3.5mm;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  box-sizing: border-box;
 }
 
 .luf-ster {
@@ -928,8 +972,9 @@ button.primary{background:#2563eb;color:#fff;}
     box-sizing: border-box !important;
 
     /* klein beetje schalen zodat onderkant nooit afkapt */
-    transform: scale(var(--printScale, 0.985)) !important;
-    transform-origin: top left !important;
+  transform: translate(var(--printTx, 0mm), var(--printTy, 0mm))
+           scale(var(--printScale, 0.985)) !important;    
+  transform-origin: top left !important;
   }
 
   /* rounding/overflow issues weg */
@@ -937,12 +982,48 @@ button.primary{background:#2563eb;color:#fff;}
   .label { border: none !important; }
 
   /* Lufthansa kleuren (Background graphics AAN in Chrome) */
-  .luf-left { background: #222 !important; }
+  /* Lufthansa kleuren print (Background graphics AAN in Chrome) */
+  .luf-head { background: #000 !important; color: #fff !important; }
+  .luf-head * { color: #fff !important; }
+
+  .luf-left,
   .luf-right,
   .luf-row,
   .luf-row.luf-split,
-  .luf-foot-left { background: #2b2b2b !important; }
-  .luf-right, .luf-right * { color: #fff !important; }
+  .luf-foot-left { background: #fff !important; color: #111 !important; }
+
+  .luf-row,
+  .luf-row.luf-split .luf-col {
+    border-color: #111 !important;
+  }
+
+  .luf-foot-right .luf-ster,
+  .luf-foot-right .luf-small2 {
+    background: #000 !important;
+    color: #fff !important;
+  }
+
+  .luf-recycle-mark,
+  .luf-recycle-code { color: #16a34a !important; }
+  /* Extra top-ruimte zodat tekst niet tegen de bovenrand valt (alleen bij print) */
+  .grid-8 .label .label-content{
+    box-sizing: border-box !important;
+    padding-top: 7mm !important; /* ~2 regels omlaag */
+  }
+
+  /* Template 16 is krapper: offset afhankelijk van font-size */
+  .grid-16 .label.f-normal .label-content{
+    box-sizing: border-box !important;
+    padding-top: 6mm !important;
+  }
+  .grid-16 .label.f-small .label-content{
+    box-sizing: border-box !important;
+    padding-top: 5mm !important;
+  }
+  .grid-16 .label.f-tiny .label-content{
+    box-sizing: border-box !important;
+    padding-top: 4mm !important;
+  }
 }
 
 
