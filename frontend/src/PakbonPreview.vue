@@ -2,7 +2,7 @@
   <div class="pakbon-wrapper">
     <div class="pakbon-actions no-print">
       <!-- ✅ nieuw: aparte knoppen + pallets input -->
-      <button @click="doPrint('pakbon')">Print pakbon + palletbon</button>
+      <button @click="doPrint('pakbon')">Print pakbon</button>
         <button class="primary" @click="doPrint('palletbon')">Print palletbon</button>
 
       <div class="pallet-input">

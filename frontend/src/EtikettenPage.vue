@@ -1,9 +1,7 @@
-<!-- src/EtikettenPage.vue -->
 <template>
   <div class="page">
     <h1 class="no-print">Etiketten</h1>
 
-    <!-- Instellingen -->
     <section class="card no-print">
       <h2>Instellingen</h2>
 
@@ -22,19 +20,16 @@
           </p>
         </div>
 
-        <!-- Lufthansa datum -->
         <div class="setting" v-if="template === '2'">
           <label>Datum (Date of Production)</label>
           <input class="input" type="date" v-model="lufthansaIsoDate" />
           <p class="hint">Wordt geprint als: <strong>{{ lufthansaDateDots }}</strong></p>
         </div>
 
-        <!-- Normale templates -->
         <div class="setting" v-else>
           <label>Wat komt op het etiket?</label>
 
           <div class="chips">
-            <!-- basis -->
             <label class="chip"><input type="checkbox" v-model="fields.klant" />Klantnaam</label>
             <label class="chip"><input type="checkbox" v-model="fields.orderRef" />Order + klanten ordernummer</label>
             <label class="chip"><input type="checkbox" v-model="fields.product" />Product</label>
@@ -45,7 +40,6 @@
             <label class="chip"><input type="checkbox" v-model="fields.datum" />Datum (vandaag)</label>
             <label class="chip"><input type="checkbox" v-model="fields.doosnummer" />Doosnummer (auto)</label>
 
-            <!-- extra (alles) -->
             <label class="chip"><input type="checkbox" v-model="fields.materiaal" />Materiaal</label>
             <label class="chip"><input type="checkbox" v-model="fields.dikte" />Dikte</label>
             <label class="chip"><input type="checkbox" v-model="fields.perforatie" />Perforatie</label>
@@ -61,164 +55,138 @@
               <label>Start doosnummer</label>
               <input class="input" type="number" min="1" v-model.number="doosStart" />
             </div>
-            <p class="hint">
-              Voorbeeld: start = <strong>1</strong> → 1-{{ slotsCount }} |
-              start = <strong>17</strong> → 17-{{ doosStart + slotsCount - 1 }}
-            </p>
           </div>
 
-          <!-- ✅ vrije tekst -->
           <div class="setting">
             <label>Extra tekst (optioneel)</label>
             <input
               class="input"
               type="text"
               v-model="extraText"
-              placeholder="Bijv: LET OP: spoed / speciale instructie / batch..."
+              placeholder="Bijv: LET OP: spoed..."
             />
-            <p class="hint">Deze tekst komt onderaan op elk gevuld etiket.</p>
           </div>
+        </div>
+      </div>
 
-          <p class="hint">Max ~5 regels. Bij template 16 wordt font automatisch kleiner als je veel aanzet.</p>
+      <div class="print-correction-wrapper" v-if="template !== '2'">
+        <h3>Hoogte-correctie handmatig per rij (in mm)</h3>
+        <p class="hint" style="margin-top:-5px; margin-bottom:15px;">
+          Positief getal schuift de rij omlaag, negatief (bijv. <code>-1.5</code>) schuift omhoog. Base-styling blijft behouden.
+        </p>
+        
+        <div class="rows-grid">
+          <div v-for="rNum in totalRows" :key="rNum" class="correction-item">
+            <label :for="'row-offset-' + rNum">Rij {{ rNum }}:</label>
+            <input 
+              :id="'row-offset-' + rNum" 
+              class="input offset-input" 
+              type="number" 
+              step="0.1" 
+              v-model.number="rowOffsets[rNum - 1]" 
+            />
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Orders kiezen -->
     <section class="card no-print" v-if="template !== '2'">
-      <h2>Kies orders (klik om te vullen)</h2>
-
-      <div v-if="loading">Laden...</div>
-      <div v-else-if="orders.length === 0">Nog geen orders.</div>
-
-      <div v-else class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Ref</th>
-              <th>Klant</th>
-              <th>Product</th>
-              <th>Formaat</th>
-              <th>Leverdatum</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr
-              v-for="o in orders"
-              :key="o.order_id"
-              class="clickable"
-              @click="addToNextSlot(o)"
-              title="Klik om op het volgende etiket te zetten"
-            >
-              <td>{{ o.order_id }}</td>
-              <td>{{ o.interne_referentie ?? "-" }}</td>
-              <td>{{ klantNaam(o.klant_id) }}</td>
-              <td>{{ o.product_naam ?? "-" }}</td>
-              <td>{{ o.formaat ?? "-" }}</td>
-              <td>{{ formatDate(o.geplande_lever_datum) }}</td>
-              <td>{{ o.status ?? "-" }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <h2>Kies order (Vult direct de hele pagina)</h2>
+      <div class="setting">
+        <select class="input" @change="fillAllSlotsWithOrder($event)">
+          <option value="">-- Selecteer een order om alle etiketten te vullen --</option>
+          <option v-for="o in orders" :key="o.order_id" :value="o.order_id">
+            Order {{ o.order_id }} | Ref: {{ o.interne_referentie ?? "-" }} | {{ klantNaam(o.klant_id) }}
+          </option>
+        </select>
       </div>
-
-      <p class="hint">Tip: klik op een etiket in de preview om ‘m leeg te maken.</p>
     </section>
 
-    <!-- Preview / print -->
     <section class="card print-card">
       <h2 class="no-print">Preview</h2>
 
       <div class="preview-wrap">
-        <div class="sheet print-area" :class="[`sheet-t${template}`]" :style="sheetStyle">
+        <div class="sheet print-area" :class="[`sheet-t${template}`]">
           <div class="label-grid" :class="gridClass">
+            
             <div
               v-for="(_, idx) in slotsCount"
               :key="idx"
               class="label"
-              :class="[fontClass, template === '2' ? 'label-plain' : '']"
+              :class="[fontClass]"
               @click="template !== '2' ? removeSlot(idx) : undefined"
             >
-              <!-- Lufthansa -->
+              
               <template v-if="template === '2'">
-                <div class="luf">
-                  <div class="luf-head">
-                    <div class="luf-title">Lufthansa</div>
-                    <div class="luf-sub">Supplied by De Ster GmbH</div>
+                <div class="lufthansa-wrapper">
+                  <div class="lh-header">
+                    <div class="lh-title">Lufthansa</div>
+                    <div class="lh-subtitle">Supplied by De Ster GmbH</div>
                   </div>
 
-                  <div class="luf-body">
-                    <div class="luf-left"></div>
-                    <div class="luf-right">
-                      <div class="luf-row">
-                        <div class="luf-big">Bakingbag for rolls large</div>
-                        <div class="luf-small">Article</div>
+                  <div class="lh-main-grid">
+                    <div class="lh-left-col"></div>
+                    <div class="lh-right-col">
+                      <div class="lh-block border-b">
+                        <div class="lh-value bold-text">Bakingbag for rolls large</div>
+                        <div class="lh-caption">Article</div>
                       </div>
-
-                      <div class="luf-row luf-split">
-                        <div class="luf-col">
-                          <div class="luf-big">1 000 pieces</div>
-                          <div class="luf-small">Quantity</div>
+                      <div class="lh-split-row border-b">
+                        <div class="lh-block border-r">
+                          <div class="lh-value bold-text">1 000 pieces</div>
+                          <div class="lh-caption">Quantity</div>
                         </div>
-                        <div class="luf-col">
-                          <div class="luf-big">&nbsp;</div>
-                          <div class="luf-small">Charge-Nr.</div>
-                        </div>
-                      </div>
-
-                      <div class="luf-row">
-                        <div class="luf-big">350 × 550 mm</div>
-                        <div class="luf-small">Dimensions of Article (mm)</div>
-                      </div>
-
-                      <div class="luf-row luf-split">
-                        <div class="luf-col">
-                          <div class="luf-mid">0,0064 kg</div>
-                          <div class="luf-small">Weight <span class="luf-light">per piece</span></div>
-                        </div>
-                        <div class="luf-col">
-                          <div class="luf-mid">6,40 kg</div>
-                          <div class="luf-small"><span class="luf-light">per box</span></div>
+                        <div class="lh-block">
+                          <div class="lh-value"></div>
+                          <div class="lh-caption">Charge-Nr.</div>
                         </div>
                       </div>
-
-                      <div class="luf-row luf-split">
-                        <div class="luf-col">
-                          <div class="luf-mid">{{ lufthansaDateDots }}</div>
-                          <div class="luf-small">Date of Production</div>
+                      <div class="lh-block border-b">
+                        <div class="lh-value bold-text">350 × 550 mm</div>
+                        <div class="lh-caption">Dimensions of Article (mm)</div>
+                      </div>
+                      <div class="lh-split-row border-b">
+                        <div class="lh-block border-r">
+                          <div class="lh-value bold-text">0,0064 kg</div>
+                          <div class="lh-caption">Weight per piece</div>
                         </div>
-                        <div class="luf-col">
-                          <div class="luf-mid">not applicable</div>
-                          <div class="luf-small">To be used before</div>
+                        <div class="lh-block">
+                          <div class="lh-value bold-text">6,40 kg</div>
+                          <div class="lh-caption">per box</div>
+                        </div>
+                      </div>
+                      <div class="lh-split-row">
+                        <div class="lh-block border-r">
+                          <div class="lh-value bold-text">{{ lufthansaDateDots }}</div>
+                          <div class="lh-caption">Date of Production</div>
+                        </div>
+                        <div class="lh-block">
+                          <div class="lh-value bold-text">not applicable</div>
+                          <div class="lh-caption">To be used before</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div class="luf-foot">
-                    <div class="luf-foot-left">
-                      <div class="luf-mid2">Handle with care / Dry storage</div>
-                      <div class="luf-small2">Handling Instructions</div>
-                      <div class="luf-recycle">
-                        <div class="luf-recycle-mark">♻</div>
-                        <div class="luf-recycle-code">1042</div>
+                  <div class="lh-footer-grid">
+                    <div class="lh-footer-left">
+                      <div class="lh-value bold-text">Handle with care / Dry storage</div>
+                      <div class="lh-caption">Handling Instructions</div>
+                      <div class="lh-recycle-code">
+                        <span class="recycle-icon">♻</span> 1042
                       </div>
                     </div>
-                    <div class="luf-foot-right">
-                      <div class="luf-ster">De Ster 363 0023</div>
-                      <div class="luf-small2">De Ster-Art.-Nr.</div>
+                    <div class="lh-footer-right">
+                      <div class="lh-value bold-text text-white">De Ster 363 0023</div>
+                      <div class="lh-caption text-gray">De Ster-Art.-Nr.</div>
                     </div>
                   </div>
                 </div>
               </template>
 
-              <!-- Normale labels -->
               <template v-else>
                 <template v-if="slots[idx]">
-                  <div class="label-content">
+                  <div class="label-content" :style="getRowOffsetStyle(idx)">
                     <div 
                       v-for="(line, i) in buildLines(slots[idx]!, idx)" 
                       :key="i" 
@@ -232,6 +200,7 @@
                   <div class="empty">—</div>
                 </template>
               </template>
+
             </div>
           </div>
         </div>
@@ -241,8 +210,6 @@
         <button @click="clearSlots">Leeg maken</button>
         <button class="primary" @click="printSheet">Print / PDF</button>
       </div>
-
-      <p class="hint no-print">Print tip: Chrome → Margins: None, Scale: 100%, Headers/Footers: uit, Background graphics: aan.</p>
     </section>
   </div>
 </template>
@@ -259,137 +226,71 @@ const loading = ref(false);
 type Template = "2" | "8" | "16";
 const template = ref<Template>("16");
 
-type LabelSlot = null | {
-  orderId: number;
-  ref: string;
-  klant: string;
-  product: string;
-  formaat: string;
-  leverdatum: string;
-  artikel: string;
-  status: string;
-};
-
 const fields = reactive({
-  // basis
-  klant: true,
-  orderRef: true,
-  product: true,
-  formaat: false,
-  leverdatum: true,
-  artikel: false,
-  status: false,
-  datum: false,
-  doosnummer: false,
-
-  // extra (alles)
-  materiaal: false,
-  dikte: false,
-  perforatie: false,
-  stuksDoos: false,
-  bundel: true,
-  totaalStuks: false,
-  dozenTotaal: false,
-  beugel: false,
+  klant: true, orderRef: true, product: true, formaat: false,
+  leverdatum: true, artikel: false, status: false, datum: false,
+  doosnummer: false, materiaal: false, dikte: false, perforatie: false,
+  stuksDoos: false, bundel: true, totaalStuks: false, dozenTotaal: false, beugel: false,
 });
 
 const extraText = ref<string>("");
-
 const doosStart = ref<number>(1);
 
+// --- LUFTHANSA DATE VARS ---
 const lufthansaIsoDate = ref<string>(new Date().toISOString().slice(0, 10));
-const lufthansaDateDots = computed(() => formatDateDots(lufthansaIsoDate.value));
+const lufthansaDateDots = computed<string>(() => {
+  if (!lufthansaIsoDate.value) return "-";
+  const parts = lufthansaIsoDate.value.split("-");
+  if (parts.length !== 3) return lufthansaIsoDate.value;
+  const [y, m, d] = parts;
+  return `${d}.${m}.${y}`;
+});
 
 const todayText = computed(() => {
   const iso = new Date().toISOString().slice(0, 10);
-  return formatDate(iso);
+  const [y, m, d] = iso.split("-");
+  return `${d}-${m}-${y}`;
 });
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "-";
-  const [y, m, d] = value.split("-");
-  if (!y || !m || !d) return value;
-  return `${d}-${m}-${y}`;
+// --- PER-RIJ HOOGTE CORRECTIE ---
+const rowOffsets = ref<number[]>([]);
+
+const totalRows = computed(() => {
+  if (template.value === "8") return 4;
+  if (template.value === "16") return 8;
+  return 0; // Geen correcties voor template 2 nodig
+});
+
+watch(totalRows, (newRowsCount) => {
+  rowOffsets.value = Array.from({ length: newRowsCount }, () => 0);
+}, { immediate: true });
+
+function getRowOffsetStyle(idx: number) {
+  if (template.value === "2") return {}; // Voor de zekerheid extra check
+  const rowIndex = Math.floor(idx / 2); // Omdat template 8 en 16 beide 2 kolommen hebben
+  const offset = rowOffsets.value[rowIndex] || 0;
+  
+  if (offset === 0) return {};
+  // Margin-top verandert niks aan jouw originele padding classes in CSS
+  return { marginTop: `${offset}mm` };
 }
 
-function formatDateDots(value: string | null | undefined) {
-  if (!value) return "-";
-  const [y, m, d] = value.split("-");
-  if (!y || !m || !d) return value;
-  return `${d}.${m}.${y}`;
-}
-
-function klantNaam(id: number | null) {
-  if (!id) return "-";
-  const k = klanten.value.find((x) => x.klant_id === id);
-  return k ? k.naam : `#${id}`;
-}
-
-async function loadData() {
-  loading.value = true;
-  try {
-    const [o, k] = await Promise.all([getOrders(), getKlanten()]);
-    orders.value = o;
-    klanten.value = k;
-  } catch (e) {
-    console.warn(e);
-    orders.value = [];
-    klanten.value = [];
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(loadData);
-
+// --- GRID & TEMPLATE LOGIC ---
 const slotsCount = computed(() => {
   if (template.value === "2") return 2;
   if (template.value === "8") return 8;
   return 16;
 });
 
-const slots = ref<LabelSlot[]>([]);
+const slots = ref<any[]>([]);
 function resetSlotsForTemplate() {
   slots.value = Array.from({ length: slotsCount.value }, () => null);
 }
 watch(template, () => resetSlotsForTemplate(), { immediate: true });
 
-function addToNextSlot(o: Order) {
-  const i = slots.value.findIndex((s) => s === null);
-  if (i === -1) return;
-
-  const slot: LabelSlot = {
-    orderId: o.order_id,
-    ref: o.klant_order_nummer ?? "-",
-    klant: klantNaam(o.klant_id),
-    product: o.product_naam ?? "-",
-    formaat: o.formaat ?? "-",
-    leverdatum: formatDate(o.geplande_lever_datum),
-    artikel: o.klant_artikel_nummer ?? "-",
-    status: String(o.status ?? "-"),
-  };
-
-  slots.value[i] = slot;
-}
-
-function removeSlot(index: number) {
-  slots.value[index] = null;
-}
-
-function clearSlots() {
-  resetSlotsForTemplate();
-}
-
-function printSheet() {
-  window.print();
-}
-
 const selectedFieldCount = computed(() => Object.values(fields).filter(Boolean).length);
-
 const fontClass = computed(() => {
-  if (template.value === "8") return "f-normal";
-  if (template.value === "2") return "f-normal";
-
+  if (template.value === "8" || template.value === "2") return "f-normal";
   if (selectedFieldCount.value <= 5) return "f-normal";
   if (selectedFieldCount.value <= 8) return "f-small";
   return "f-tiny";
@@ -401,34 +302,60 @@ const gridClass = computed(() => {
   return "grid-16";
 });
 
-const printScale = computed(() => {
-  if (template.value === "16") return "0.985";
-  if (template.value === "2") return "0.96";   // iets kleiner zodat er witruimte ontstaat
-  return "1";
+// --- HELPER FUNCTIES ---
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  const [y, m, d] = value.split("-");
+  if (!y || !m || !d) return value;
+  return `${d}-${m}-${y}`;
+}
+
+function klantNaam(id: number | null) {
+  if (!id) return "-";
+  const k = klanten.value.find((x) => x.klant_id === id);
+  return k ? k.naam : `#${id}`;
+}
+
+// Vult direct alle etiketten op basis van dropdown selectie
+function fillAllSlotsWithOrder(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const orderId = Number(target.value);
+  if (!orderId) { clearSlots(); return; }
+
+  const o = orders.value.find((x) => x.order_id === orderId);
+  if (!o) return;
+
+  const slot = {
+    orderId: o.order_id,
+    ref: o.klant_order_nummer ?? "-",
+    klant: klantNaam(o.klant_id),
+    product: o.product_naam ?? "-",
+    formaat: o.formaat ?? "-",
+    leverdatum: formatDate(o.geplande_lever_datum),
+    artikel: o.klant_artikel_nummer ?? "-",
+    status: String(o.status ?? "-"),
+  };
+  slots.value = Array.from({ length: slotsCount.value }, () => ({ ...slot }));
+}
+
+function removeSlot(index: number) { slots.value[index] = null; }
+function clearSlots() { resetSlotsForTemplate(); }
+function printSheet() { window.print(); }
+
+onMounted(async () => {
+  loading.value = true;
+  try {
+    orders.value = await getOrders();
+    klanten.value = await getKlanten();
+  } catch(e) { console.warn(e); }
+  loading.value = false;
 });
 
-const printOffset = computed(() => {
-  if (template.value === "2") return { x: "5mm", y: "5mm" }; // inset zoals afb 3
-  return { x: "0mm", y: "0mm" };
-});
-
-const sheetStyle = computed(() => ({
-  "--printScale": printScale.value,
-  "--printTx": printOffset.value.x,
-  "--printTy": printOffset.value.y,
-}) as Record<string, string>);
-
-type FilledSlot = Exclude<LabelSlot, null>;
-
-function buildLines(slot: FilledSlot, idx: number) {
+function buildLines(slot: any, idx: number) {
   const lines: string[] = [];
-
-  // Deze eerste 3 krijgen in de CSS 'full-width'
   if (fields.klant) lines.push(slot.klant);
   if (fields.orderRef) lines.push(`Order ${slot.orderId} · Klant order ${slot.ref}`);
   if (fields.product) lines.push(slot.product);
-  
-  // De rest gaat in 2 kolommen
   if (fields.formaat) lines.push(`Formaat: ${slot.formaat}`);
   if (fields.leverdatum) lines.push(`Leverdatum: ${slot.leverdatum}`);
   if (fields.artikel) lines.push(`Art.nr: ${slot.artikel}`);
@@ -436,595 +363,139 @@ function buildLines(slot: FilledSlot, idx: number) {
   if (fields.datum) lines.push(`Datum: ${todayText.value}`);
 
   const order = orders.value.find((o) => o.order_id === slot.orderId);
-
   if (order) {
     if (fields.materiaal && order.materiaal) lines.push(`Mat: ${order.materiaal}`);
     if (fields.dikte && order.dikte_micron != null) lines.push(`Dikte: ${order.dikte_micron} µm`);
     if (fields.perforatie && order.perforatie_type) lines.push(`Perf: ${order.perforatie_type}`);
     if (fields.stuksDoos && order.stuks_per_doos != null) lines.push(`Doos: ${order.stuks_per_doos}`);
-    
-    // ✅ Bundel info toegevoegd
-    if (fields.bundel && order.stuks_per_bundel != null) {
-      lines.push(`Bundel: ${order.stuks_per_bundel} st.`);
-    }
-
+    if (fields.bundel && order.stuks_per_bundel != null) lines.push(`Bundel: ${order.stuks_per_bundel} st.`);
     if (fields.totaalStuks && order.totaal_aantal_stuks != null) lines.push(`Totaal: ${order.totaal_aantal_stuks}`);
-
     if (fields.dozenTotaal && order.stuks_per_doos && order.totaal_aantal_stuks) {
-      const totalBoxes = Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos);
-      lines.push(`Dozen: ${totalBoxes}`);
+      lines.push(`Dozen: ${Math.ceil(order.totaal_aantal_stuks / order.stuks_per_doos)}`);
     }
-
     if (fields.beugel && (order.beugel_maat || order.beugel_vorm)) {
       lines.push(`Beugel: ${order.beugel_maat ?? "-"} / ${order.beugel_vorm ?? "-"}`);
     }
   }
-
+  
   if (fields.doosnummer && (template.value === "8" || template.value === "16")) {
-    const doosNr = (doosStart.value || 1) + idx;
-    lines.push(`Doosnummer: ${doosNr}`);
+    lines.push(`Doosnummer: ${(doosStart.value || 1) + idx}`);
   }
-
-  const extra = extraText.value.trim();
-  if (extra) lines.push(extra);
-
+  
+  if (extraText.value.trim()) lines.push(extraText.value.trim());
   return lines;
 }
 </script>
 
 <style scoped>
-.page{
-  max-width:1100px;
-  margin:2rem auto;
-  padding:0 1rem 3rem;
-  color:#f9fafb;
+.page { max-width: 1100px; margin: 2rem auto; padding: 0 1rem 3rem; color: #f9fafb; }
+h1 { font-size: 1.8rem; margin-bottom: 1.2rem; }
+h2 { font-size: 1.1rem; margin-bottom: .75rem; }
+
+.card { background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; color: #111827; }
+.settings { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+@media (min-width: 900px) { .settings { grid-template-columns: 360px 1fr; align-items: start; } }
+
+.setting label { font-weight: 600; display: block; margin-bottom: .4rem; }
+select, .input { width: 100%; border-radius: 10px; border: 1px solid #d1d5db; padding: .5rem .6rem; background: #f3f4f6; }
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.chip { display: inline-flex; align-items: center; gap: .45rem; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: .35rem .6rem; font-size: .9rem; }
+.doos-settings { margin-top: .8rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: .8rem; }
+.doos-row { display: grid; grid-template-columns: 160px 1fr; gap: .8rem; align-items: center; }
+
+/* Rij correctie paneel stijlen */
+.print-correction-wrapper { padding-top: 1.2rem; border-top: 1px solid #e5e7eb; }
+.print-correction-wrapper h3 { font-size: 1rem; margin-bottom: 0.2rem; color: #1f2937; }
+.rows-grid { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+.correction-item { display: flex; align-items: center; gap: 0.5rem; background: #f9fafb; border: 1px solid #e5e7eb; padding: 0.4rem 0.8rem; border-radius: 8px; }
+.correction-item label { font-weight: bold; font-size: 0.9rem; }
+.offset-input { width: 75px; text-align: center; padding: 0.3rem; }
+
+.toolbar { margin-top: .9rem; display: flex; gap: .6rem; justify-content: flex-end; }
+button { border: none; border-radius: 999px; padding: .45rem 1rem; cursor: pointer; background: #e5e7eb; }
+button.primary { background: #2563eb; color: #fff; }
+.hint { margin-top: .75rem; font-size: .85rem; color: #4b5563; }
+.preview-wrap { overflow-x: auto; padding-bottom: .5rem; line-height: 1.2; }
+
+/* ===================== SHEET / GRID (JOUW CSS STRUCTUUR) ===================== */
+.sheet { width: 210mm; height: 297mm; background: #fff; border: 1px dashed #e5e7eb; overflow: hidden; box-sizing: border-box; }
+.label-grid { display: grid; width: 210mm; height: 297mm; align-content: start; }
+.grid-16 { grid-template-columns: 105mm 105mm; grid-template-rows: repeat(8, 37mm); }
+.grid-8 { grid-template-columns: 105mm 105mm; grid-template-rows: repeat(4, 74.25mm); }
+.grid-2 { grid-template-columns: 210mm; grid-template-rows: repeat(2, 148.5mm); }
+
+.label {
+  box-sizing: border-box; color: #111827; user-select: none;
+  border: 1px solid rgba(0,0,0,.05);
+  padding-left: 4mm; padding-right: 4mm;
+}
+.grid-16 .label { width: 105mm; height: 37mm; padding-left: 3mm; padding-right: 3mm; }
+.grid-8 .label { width: 105mm; height: 74.25mm; }
+
+/* JOUW SPECIFIEKE PADDING CLASSES (ZORGVULDIG BEHOUDEN) */
+.grid-16 .label.f-normal .label-content { box-sizing: border-box !important; padding-top: 6mm !important; }
+.grid-16 .label.f-small .label-content { box-sizing: border-box !important; padding-top: 5mm !important; }
+.grid-16 .label.f-tiny .label-content { box-sizing: border-box !important; padding-top: 4mm !important; }
+.grid-8 .label.f-normal .label-content { box-sizing: border-box !important; padding-top: 7mm !important; }
+
+/* Lufthansa label wrapper overrides (Nu met veilige marge rondom!) */
+.grid-2 .label { 
+  padding: 6mm 10mm !important; /* Boven/onder 6mm, links/rechts 10mm afstand tot de papierrand */
+  border: none; 
 }
 
-h1{font-size:1.8rem;margin-bottom:1.2rem;}
-h2{font-size:1.1rem;margin-bottom:.75rem;}
+.label-content { display: grid; grid-template-columns: 1fr 1fr; column-gap: 2mm; row-gap: 0.5mm; }
+.line:nth-child(1), .line:nth-child(2), .line:nth-child(3) { grid-column: span 2; font-weight: bold; border-bottom: 0.2mm solid #eee; margin-bottom: 1px; }
+.line { font-size: 9pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { color: #9ca3af; display: flex; height: 100%; align-items: center; justify-content: center; }
 
-.card{
-  background:#fff;
-  border-radius:12px;
-  padding:1.5rem;
-  margin-bottom:1.5rem;
-  border:1px solid #e5e7eb;
-  color:#111827;
-}
-
-.settings{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:1rem;
-}
-
-@media (min-width:900px){
-  .settings{
-    grid-template-columns:360px 1fr;
-    align-items:start;
-  }
-}
-
-.setting label{
-  font-weight:600;
-  display:block;
-  margin-bottom:.4rem;
-}
-
-select,.input{
-  width:100%;
-  border-radius:10px;
-  border:1px solid #d1d5db;
-  padding:.5rem .6rem;
-  background:#f3f4f6;
-}
-
-.chips{display:flex;flex-wrap:wrap;gap:.5rem;}
-
-.chip{
-  display:inline-flex;
-  align-items:center;
-  gap:.45rem;
-  background:#f3f4f6;
-  border:1px solid #e5e7eb;
-  border-radius:999px;
-  padding:.35rem .6rem;
-  font-size:.9rem;
-}
-
-.doos-settings{
-  margin-top:.8rem;
-  background:#f9fafb;
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  padding:.8rem;
-}
-
-.doos-row{
-  display:grid;
-  grid-template-columns:160px 1fr;
-  gap:.8rem;
-  align-items:center;
-}
-
-.table-wrapper{overflow-x:auto;}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:.9rem;
-}
-
-th,td{
-  padding:.55rem .6rem;
-  border-bottom:1px solid #e5e7eb;
-  text-align:left;
-}
-
-th{background:#f9fafb;font-weight:600;}
-
-.clickable{cursor:pointer;}
-.clickable:hover{background:#f3f4f6;}
-
-.toolbar{
-  margin-top:.9rem;
-  display:flex;
-  gap:.6rem;
-  justify-content:flex-end;
-}
-
-button{
-  border:none;
-  border-radius:999px;
-  padding:.45rem 1rem;
-  cursor:pointer;
-  background:#e5e7eb;
-}
-
-button.primary{background:#2563eb;color:#fff;}
-
-.hint{
-  margin-top:.75rem;
-  font-size:.85rem;
-  color:#4b5563;
-}
-
-.preview-wrap {
-  overflow-x: auto;
-  padding-bottom: .5rem;
-  line-height: 1.2; 
-}
-
-.label-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 4mm;
-  row-gap: 1mm;
-  align-content: start;
-}
-
-.line:nth-child(-n+3) {
-  grid-column: span 2; 
-  font-weight: bold;
-  border-bottom: 0.5px solid #eee; /* Optioneel: een dun lijntje eronder */
-  margin-bottom: 2px;
-}
-
-.line.full-width {
-  grid-column: span 2;
-  font-weight: bold;
-  border-bottom: 0.5px solid #eee;
-  margin-bottom: 1px;
-}
-
-/* ===================== SHEET / GRID ===================== */
-.sheet{
-  --ml:0mm;
-  --mt:0mm;
-  --cg:0mm;
-  --rg:0mm;
-
-  /* print-scale variable (via inline style) */
-  --printScale: 1;
-
-  width:210mm;
-  height:297mm;
-  background:#fff;
-  border:1px dashed #e5e7eb;
-  padding-left:var(--ml);
-  padding-top:var(--mt);
-  overflow:hidden;
-  box-sizing:border-box;
-}
-
-.label-grid{
-  display:grid;
-  column-gap:var(--cg);
-  row-gap:var(--rg);
-  width:210mm;
-  height:297mm;
-  align-content:start;
-}
-
-/* 16 etiketten: 2×8, 105×37mm */
-.grid-16{
-  grid-template-columns:105mm 105mm;
-  grid-template-rows:repeat(8, 37mm);
-}
-
-/* 8 etiketten: 2×4 */
-.grid-8{
-  grid-template-columns:105mm 105mm;
-  grid-template-rows:repeat(4, 74.25mm);
-}
-
-/* 2 etiketten: 1×2 */
-.grid-2{
-  grid-template-columns:210mm;
-  grid-template-rows:repeat(2, 148.5mm);
-}
-
-.label{
-  box-sizing:border-box;
-  color:#111827;
-  user-select:none;
-  border:1px solid rgba(0,0,0,.05);
-  padding:3mm 4mm;
-}
-
-.grid-16 .label{width:105mm;height:37mm;}
-.grid-8  .label{width:105mm;height:74.25mm;}
-.grid-2  .label{width:210mm;height:148.5mm;padding:0;}
-
-/* Bij template 16 (klein) moeten we iets zuiniger zijn met ruimte */
-.grid-16 .label {
-  padding: 2mm 3mm;
-}
-
-.label-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* Verdeelt de rest in 2 kolommen */
-  column-gap: 2mm;
-  row-gap: 0.5mm;
-  align-content: start;
-}
-
-.line:nth-child(1),
-.line:nth-child(2),
-.line:nth-child(3) {
-  grid-column: span 2;
-  font-weight: bold;
-  border-bottom: 0.2mm solid #eee;
-  margin-bottom: 1px;
-}
-
-.label-plain{border:none;}
-
-.line {
-  font-size: 9pt;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.1;
-}
-
-.empty{
-  color:#9ca3af;
-  display:flex;
-  height:100%;
-  align-items:center;
-  justify-content:center;
-}
-
-/* auto font sizing */
 .f-normal .line { font-size: 10pt; line-height: 1.3; }
-.f-small  .line { font-size: 9pt;  line-height: 1.2; }
-.f-tiny   .line { font-size: 7.5pt;  line-height: 1.1; }
+.f-small .line { font-size: 9pt; line-height: 1.2; }
+.f-tiny .line { font-size: 7.5pt; line-height: 1.1; }
 
-/* ===================== Lufthansa label ===================== */
-.luf {
-  width: 100%;
-  height: 100%;
-  background: #fff;
-  color: #111;
-  border: 0.6mm solid #111;
-  font-family: Arial, system-ui, -apple-system, "Segoe UI", sans-serif;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+/* ===================== LUFTHANSA TEMPLATE HTML STYLES ===================== */
+.lufthansa-wrapper {
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  font-family: Arial, sans-serif; color: #000; box-sizing: border-box; border: 2px solid #000;
 }
+.lh-header { background: #000; color: #fff; text-align: center; padding: 12px 0; }
+.lh-title { font-size: 20pt; font-weight: bold; letter-spacing: 1px; }
+.lh-subtitle { font-size: 14pt; margin-top: 2px; }
 
-.luf-head {
-  flex: 0 0 22mm;
-  padding: 4.5mm 5mm 2.5mm;
-  text-align: center;
-  border-bottom: 0.6mm solid #111;
-  box-sizing: border-box;
+/* GEBRUIK NU FR UNITS IN PLAATS VAN MM OM OVERFLOW EN LELIJK RECHTS-UITSTEKEN TE FIXEN! */
+.lh-main-grid { display: grid; grid-template-columns: 75fr 135fr; flex-grow: 1; }
+.lh-left-col { border-right: 2px solid #000; background: #fff; }
+.lh-right-col { display: flex; flex-direction: column; }
+.lh-block { padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; flex-grow: 1; }
+.lh-split-row { display: grid; grid-template-columns: 1fr 1fr; flex-grow: 1; }
+.border-b { border-bottom: 2px solid #000; }
+.border-r { border-right: 2px solid #000; }
+.lh-value { font-size: 16pt; line-height: 1.2; min-height: 22px; }
+.bold-text { font-weight: bold; font-size: 17pt; }
+.lh-caption { font-size: 9pt; color: #333; margin-top: 3px; }
 
-  /* afb 3: zwart vlak boven */
-  background: #000;
-  color: #fff;
-}
-
-.luf-title { color: #fff; }
-.luf-sub   { color: #fff; }
-
-.luf-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  display: grid;
-
-  /* afb 3: links kleiner */
-  grid-template-columns: 40% 60%;
-}
-
-.luf-left {
-  /* afb 3: wit vlak links */
-  background: #fff;
-  border-right: 0.6mm solid #111;
-}
-
-.luf-right {
-  /* afb 3: wit vlak rechts met zwarte tekst */
-  background: #fff;
-  color: #111;
-
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-/* ✅ lege paarse ruimte weg: rijen vullen de hoogte */
-.luf-row {
-  background: #fff;
-  border-bottom: 0.5mm solid #111;
-  padding: 3mm 3.5mm 2mm;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-sizing: border-box;
-
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-.luf-row.luf-split {
-  padding: 0;
-  border-bottom: none;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  background: #fff;
-
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-.luf-row.luf-split .luf-col {
-  background: #fff;
-  padding: 3mm 3.5mm 2mm;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-sizing: border-box;
-
-  border-right: 0.5mm solid #111;
-  border-bottom: 0.5mm solid #111;
-}
-.luf-row.luf-split .luf-col:last-child {
-  border-right: none;
-}
-
-.luf-small {
-  font-size: 8.5pt;
-  opacity: 1;
-  margin-top: 0.8mm;
-  color: #111;
-}
-.luf-light {
-  font-weight: 500;
-  opacity: 1;
-}
-
-.luf-big {
-  font-size: 13.5pt;
-  font-weight: 800;
-  line-height: 1.08;
-}
-.luf-mid {
-  font-size: 12.8pt;
-  font-weight: 800;
-  line-height: 1.08;
-}
-
-.luf-foot {
-  flex: 0 0 28mm;
-  display: grid;
-  grid-template-columns: 40% 60%;
-  border-top: 0.6mm solid #111;
-  box-sizing: border-box;
-}
-
-.luf-foot-left {
-  background: #fff;
-  color: #111;
-  padding: 3.2mm;
-  border-right: 0.6mm solid #111;
-  box-sizing: border-box;
-
-  display: flex;
-  flex-direction: column;
-}
-
-/* recycle groen zoals afb 3 (optioneel maar matcht mooi) */
-.luf-recycle-mark,
-.luf-recycle-code {
-  color: #16a34a;
-}
-
-.luf-foot-right {
-  background: #fff;
-  color: #111;
-
-  /* we maken de zwarte balk onderaan via de tekstblokken */
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  box-sizing: border-box;
-}
-
-/* zwarte balk onderaan rechts */
-.luf-foot-right .luf-ster,
-.luf-foot-right .luf-small2 {
-  background: #000;
-  color: #fff;
-  padding: 0 5mm;
-  opacity: 1;
-}
-
-.luf-foot-right .luf-ster {
-  padding-top: 4mm;
-  padding-bottom: 1mm;
-}
-
-.luf-foot-right .luf-small2 {
-  margin-top: 0;
-  padding-bottom: 3.5mm;
-}
-
-.luf-mid2 {
-  font-size: 11pt;
-  font-weight: 800;
-}
-.luf-small2 {
-  font-size: 8.5pt;
-  opacity: 0.95;
-
-  /* NEW: geen negatieve margin meer (die veroorzaakt verschuiven) */
-  margin-top: 0.8mm;
-  line-height: 1.1;
-}
-
-.luf-recycle {
-  /* NEW: niet meer absolute -> altijd zichtbaar op dezelfde plek */
-  position: static;
-  margin-top: auto;            /* duwt naar onderkant */
-  display: flex;
-  align-items: center;
-  gap: 2.5mm;
-}
-
-.luf-ster {
-  font-size: 14.5pt;
-  font-weight: 900;
-}
-
-/* extra veilige marge Lufthansa label */
-.grid-2 .label{
-  padding:1mm;
-  box-sizing:border-box;
-}
+/* OOK HIER FR UNITS ZODAT ALLES PERFECT RECHTS LIJNT */
+.lh-footer-grid { display: grid; grid-template-columns: 75fr 135fr; height: 35mm; border-top: 2px solid #000; }
+.lh-footer-left { padding: 8px 12px; border-right: 2px solid #000; position: relative; }
+.lh-footer-right { background: #000; color: #fff; padding: 12px; display: flex; flex-direction: column; justify-content: center; }
+.text-white { color: #fff !important; font-size: 18pt; }
+.text-gray { color: #ccc !important; }
+.lh-recycle-code { margin-top: 12px; font-size: 13pt; color: #00a651; font-weight: bold; display: flex; align-items: center; gap: 4px; }
 
 /* ===================== PRINT ===================== */
 @media print {
   @page { size: A4; margin: 0; }
-
   :global(html), :global(body) {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-
-    /* helpt tegen extra pagina's */
-    width: 210mm !important;
-    height: 297mm !important;
-    overflow: hidden !important;
+    margin: 0 !important; padding: 0 !important; background: #fff !important;
+    width: 210mm !important; height: 297mm !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
   }
-
-  /* UI weg (neemt geen ruimte in) */
   .no-print { display: none !important; }
-
-  /* FAILSAFE: als ergens anders "alles verbergen" staat -> wij nemen controle */
   :global(body) * { visibility: hidden !important; }
-
-  /* Alleen de sheet laten zien */
-  .print-area,
-  .print-area * {
-    visibility: visible !important;
-  }
-
-  /* linksboven plaatsen */
-  .print-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-  }
-
-  /* printsheet */
-  .sheet {
-    width: 210mm !important;
-    height: 297mm !important;
-    margin: 0 !important;
-    border: none !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-
-    /* klein beetje schalen zodat onderkant nooit afkapt */
-  transform: translate(var(--printTx, 0mm), var(--printTy, 0mm))
-           scale(var(--printScale, 0.985)) !important;    
-  transform-origin: top left !important;
-  }
-
-  /* rounding/overflow issues weg */
-  .label-grid { height: auto !important; }
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area { position: absolute !important; left: 0 !important; top: 0 !important; }
+  
+  .sheet { width: 210mm !important; height: 297mm !important; margin: 0 !important; border: none !important; box-sizing: border-box !important; }
   .label { border: none !important; }
-
-  /* Lufthansa kleuren (Background graphics AAN in Chrome) */
-  /* Lufthansa kleuren print (Background graphics AAN in Chrome) */
-  .luf-head { background: #000 !important; color: #fff !important; }
-  .luf-head * { color: #fff !important; }
-
-  .luf-left,
-  .luf-right,
-  .luf-row,
-  .luf-row.luf-split,
-  .luf-foot-left { background: #fff !important; color: #111 !important; }
-
-  .luf-row,
-  .luf-row.luf-split .luf-col {
-    border-color: #111 !important;
-  }
-
-  .luf-foot-right .luf-ster,
-  .luf-foot-right .luf-small2 {
-    background: #000 !important;
-    color: #fff !important;
-  }
-
-  .luf-recycle-mark,
-  .luf-recycle-code { color: #16a34a !important; }
-  /* Extra top-ruimte zodat tekst niet tegen de bovenrand valt (alleen bij print) */
-  .grid-8 .label .label-content{
-    box-sizing: border-box !important;
-    padding-top: 7mm !important; /* ~2 regels omlaag */
-  }
-
-  /* Template 16 is krapper: offset afhankelijk van font-size */
-  .grid-16 .label.f-normal .label-content{
-    box-sizing: border-box !important;
-    padding-top: 6mm !important;
-  }
-  .grid-16 .label.f-small .label-content{
-    box-sizing: border-box !important;
-    padding-top: 5mm !important;
-  }
-  .grid-16 .label.f-tiny .label-content{
-    box-sizing: border-box !important;
-    padding-top: 4mm !important;
-  }
 }
-
-
 </style>

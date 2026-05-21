@@ -96,18 +96,38 @@ onMounted(async () => {
   const { data } = await supabase.auth.getSession();
   session.value = data.session;
 
-  if (session.value) await fetchRole();
+  if (session.value) {
+    await fetchRole();
+  }
 
+  // Luister naar auth veranderingen
   const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // Onthoud de oude user ID om te vergelijken
+    const oldUserId = session.value?.user?.id;
+    const newUserId = newSession?.user?.id;
+
     session.value = newSession;
-    role.value = null;
 
-    // reset UI bij in/uitloggen
-    menuOpen.value = false;
-    selectedOrder.value = null;
-    currentPage.value = "orders";
+    // ALlEEN actie ondernemen als er écht een andere gebruiker in- of uitlogt
+    if (newUserId !== oldUserId) {
+      role.value = null;
 
-    if (session.value) await fetchRole();
+      // Reset de UI alleen bij een daadwerkelijke login/logout wissel
+      menuOpen.value = false;
+      selectedOrder.value = null;
+      currentPage.value = "orders";
+
+      if (newSession) {
+        await fetchRole();
+      }
+    } else {
+      // De user is hetzelfde (bijv. token refresh op de achtergrond of tab-focus).
+      // Als er op de een of andere manier nog geen rol was, halen we die stilletjes op,
+      // maar we zetten role.value NIET eerst op null, waardoor je geen flitsend laadscherm krijgt!
+      if (newSession && !role.value && !checkingRole.value) {
+        await fetchRole();
+      }
+    }
   });
 
   authUnsub = sub?.subscription ?? null;

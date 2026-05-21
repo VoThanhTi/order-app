@@ -4,43 +4,20 @@
     <h1>Pakbon maken</h1>
 
     <!-- ORDER KIEZEN -->
-    <section class="card">
+    <section class="card no-print">
       <h2>Kies een order</h2>
 
       <div v-if="loading">Laden...</div>
       <div v-else-if="orders.length === 0">Nog geen orders.</div>
 
-      <div v-else class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Ref</th>
-              <th>Klant</th>
-              <th>Product</th>
-              <th>Formaat</th>
-              <th>Leverdatum</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr
-              v-for="order in orders"
-              :key="order.order_id"
-              :class="{ selected: selectedOrder?.order_id === order.order_id }"
-              @click="selectOrder(order)"
-            >
-              <td>{{ order.order_id }}</td>
-              <td>{{ order.interne_referentie ?? "-" }}</td>
-              <td>{{ klantNaam(order.klant_id) }}</td>
-              <td>{{ order.product_naam ?? "-" }}</td>
-              <td>{{ order.formaat ?? "-" }}</td>
-              <td>{{ formatDate(order.geplande_lever_datum) }}</td>
-              <td>{{ order.status ?? "-" }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else class="setting">
+        <label>Order</label>
+        <select class="input" @change="selectOrderFromSelect($event)">
+          <option value="">-- Selecteer een order --</option>
+          <option v-for="o in orders" :key="o.order_id" :value="o.order_id">
+            Order {{ o.order_id }} | Ref: {{ o.interne_referentie ?? "-" }} | {{ klantNaam(o.klant_id) }}
+          </option>
+        </select>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
@@ -74,13 +51,6 @@ const error = ref<string | null>(null);
 
 const selectedOrder = ref<Order | null>(null);
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "-";
-  const [y, m, d] = value.split("-");
-  if (!y || !m || !d) return value;
-  return `${d}-${m}-${y}`;
-}
-
 function klantNaam(id: number | null) {
   if (!id) return "-";
   const k = klanten.value.find((klant) => klant.klant_id === id);
@@ -94,8 +64,12 @@ const selectedKlant = computed<Klant | null>(() => {
   return klanten.value.find((k) => k.klant_id === id) ?? null;
 });
 
-function selectOrder(order: Order) {
-  selectedOrder.value = order;
+function selectOrderFromSelect(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const orderId = Number(target.value);
+  if (!orderId) { selectedOrder.value = null; return; }
+  const o = orders.value.find((x) => x.order_id === orderId);
+  if (o) selectedOrder.value = o;
 }
 
 async function loadData() {
@@ -146,6 +120,10 @@ h2 {
   font-size: 1.2rem;
   margin-bottom: 1rem;
 }
+
+/* simple form styles (kopiëren van EtikettenPage voor consistente look) */
+.setting label { font-weight: 600; display: block; margin-bottom: .4rem; }
+select, .input { width: 100%; border-radius: 10px; border: 1px solid #d1d5db; padding: .5rem .6rem; background: #f3f4f6; }
 
 .table-wrapper {
   overflow-x: auto;
