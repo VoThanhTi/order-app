@@ -88,6 +88,12 @@ export type Order = {
   totaal_aantal_meters?: number | null;
   totaal_prijs?: number | null;
 
+  // prijs instellingen voor orderbevestiging
+  prijs_eenheid_type?: string | null;
+  bereken_aantal?: number | null;
+  prijs_per_eenheid?: number | null;
+  extra_omschrijving?: string | null;
+
   notities?: string | null;
   gereed_voor_verzending?: boolean | null;
 };
@@ -123,6 +129,10 @@ export type OrderUpdate = Partial<
     | "rol_lengte"
     | "totaal_aantal_meters"
     | "totaal_prijs"
+    | "prijs_eenheid_type"
+    | "bereken_aantal"
+    | "prijs_per_eenheid"
+    | "extra_omschrijving"
     | "notities"
     | "gereed_voor_verzending"
   >

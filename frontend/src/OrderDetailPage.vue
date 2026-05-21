@@ -235,18 +235,18 @@ watch(
       klantNaam.value = null;
     }
 
-    // Doc fields inladen en default aantal berekenen
-    loadDocFields();
-    if (localOrder.value && docFields.value.berekenAantal === 0) {
-        // Slimme default: als het 1000 stuks is, deel door 1000
-        const totaal = localOrder.value.totaal_aantal_stuks || 0;
-        docFields.value.berekenAantal = totaal > 0 ? totaal / 1000 : 0;
+    // Doc fields inladen en default aantal berekenen (DB eerst, fallback localStorage)
+    await loadDocFields();
+    if (localOrder.value && (docFields.value.berekenAantal === 0 || docFields.value.berekenAantal === null)) {
+      // Slimme default: als het 1000 stuks is, deel door 1000
+      const totaal = localOrder.value.totaal_aantal_stuks || 0;
+      docFields.value.berekenAantal = totaal > 0 ? totaal / 1000 : 0;
     }
   },
   { immediate: true }
 );
 
-watch(docFields, () => saveDocFields(), { deep: true });
+watch(docFields, () => { void saveDocFields(); }, { deep: true });
 
 const displayKlantNaam = computed(() => {
   if (!localOrder.value) return null;
@@ -607,7 +607,24 @@ function docKey() {
   return id ? `docFields:${id}` : null;
 }
 
-function loadDocFields() {
+async function loadDocFields() {
+  // Geef voorkeur aan waarden die in de DB op het orderrecord staan.
+  const o = localOrder.value as any;
+  if (!o) return;
+
+  const hasDbFields = typeof o.prijs_eenheid_type !== "undefined" || typeof o.prijs_per_eenheid !== "undefined" || typeof o.bereken_aantal !== "undefined" || typeof o.extra_omschrijving !== "undefined";
+
+  if (hasDbFields) {
+    docFields.value = {
+      prijsEenheidType: o.prijs_eenheid_type ?? "per 1.000 stuks",
+      berekenAantal: Number(o.bereken_aantal ?? 0),
+      prijsPerEenheid: Number(o.prijs_per_eenheid ?? 0),
+      extraOmschrijving: o.extra_omschrijving ?? "",
+    };
+    return;
+  }
+
+  // Fallback: oude localStorage-waarde
   const key = docKey();
   if (!key) return;
   try {
@@ -623,9 +640,39 @@ function loadDocFields() {
   } catch {}
 }
 
-function saveDocFields() {
+async function saveDocFields() {
   const key = docKey();
-  if (key) localStorage.setItem(key, JSON.stringify(docFields.value));
+  // Als we geen order hebben, bewaar lokaal (nog geen id)
+  if (!localOrder.value) {
+    if (key) {
+      try {
+        localStorage.setItem(key, JSON.stringify(docFields.value));
+      } catch {}
+    }
+    return;
+  }
+
+  const orderId = localOrder.value.order_id;
+  const patch: any = {
+    prijs_eenheid_type: docFields.value.prijsEenheidType ?? "per 1.000 stuks",
+    bereken_aantal: Number(docFields.value.berekenAantal ?? 0) || 0,
+    prijs_per_eenheid: Number(docFields.value.prijsPerEenheid ?? 0) || 0,
+    extra_omschrijving: docFields.value.extraOmschrijving || null,
+  };
+
+  try {
+    const updated = await updateOrder(orderId, patch as any);
+    // Werk localOrder bij met opgeslagen velden
+    if (updated) localOrder.value = { ...(localOrder.value as any), ...patch } as Order;
+  } catch (e) {
+    // Fallback naar localStorage als DB update faalt
+    if (key) {
+      try {
+        localStorage.setItem(key, JSON.stringify(docFields.value));
+      } catch {}
+    }
+    console.error("Kon docFields niet naar DB schrijven:", e);
+  }
 }
 </script>
 
