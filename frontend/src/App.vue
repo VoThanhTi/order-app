@@ -9,6 +9,7 @@ import OrdersOverview from "./OrdersOverview.vue";
 import OrderDetailPage from "./OrderDetailPage.vue";
 import PakbonPage from "./PakbonPage.vue";
 import EtikettenPage from "./EtikettenPage.vue";
+import VoorraadPage from "./VoorraadPage.vue";
 import type { Order } from "./services/db";
 
 type Page =
@@ -16,6 +17,7 @@ type Page =
   | "order-nieuw"
   | "klanten"
   | "etiketten"
+  | "voorraad"
   | "pakbon"
   | "order-detail";
 
@@ -37,6 +39,7 @@ const pageTitle = computed(() => {
     case "order-nieuw": return "Nieuwe order";
     case "klanten": return "Klanten";
     case "etiketten": return "Etiketten";
+    case "voorraad": return "Voorraadbeheer";
     case "pakbon": return "Pakbon maken";
     case "order-detail": return "Orderdetails";
     default: return "";
@@ -190,6 +193,9 @@ onUnmounted(() => {
         <button class="menu-item" :class="{ active: currentPage === 'etiketten' }" @click="goTo('etiketten')">
           Etiketten
         </button>
+        <button class="menu-item" :class="{ active: currentPage === 'voorraad' }" @click="goTo('voorraad')">
+          Voorraad
+        </button>
         <button class="menu-item" :class="{ active: currentPage === 'pakbon' }" @click="goTo('pakbon')">
           Pakbon
         </button>
@@ -218,6 +224,7 @@ onUnmounted(() => {
           @updated="handleOrderUpdated"
           @deleted="handleOrderDeleted"
         />
+        <VoorraadPage v-else-if="currentPage === 'voorraad'" />
       </main>
     </div>
   </div>

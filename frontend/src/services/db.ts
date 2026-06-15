@@ -202,3 +202,120 @@ export async function createQualityCheck(payload: QualityCheckInsert): Promise<Q
   if (res.error) throw res.error;
   return res.data as QualityCheck;
 }
+
+// ------------------------------
+// Voorraad (Inventory) functies
+// Tabellen verwacht: inventory_groups, inventory_items
+// ------------------------------
+
+export type InventoryGroup = {
+  id: string;
+  name: string;
+  created_at?: string | null;
+};
+
+export type InventoryItem = {
+  id: string;
+  group_id: string;
+  product_name: string | null;
+  product_sku?: string | null;
+  quantity: number;
+  last_modified_at?: string | null;
+  created_at?: string | null;
+};
+
+export type InventoryItemInsert = Omit<InventoryItem, "id" | "created_at" | "last_modified_at">;
+
+export async function getInventoryGroups(): Promise<InventoryGroup[]> {
+  const res = await supabase
+    .from("inventory_groups")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (res.error) throw res.error;
+  return (res.data ?? []) as InventoryGroup[];
+}
+
+export async function createInventoryGroup(name: string): Promise<InventoryGroup> {
+  // probeer de ingelogde user-id mee te geven zodat RLS WITH CHECK werkt
+  let created_by: string | null = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) created_by = data.user.id;
+  } catch (e) {
+    // ignore
+  }
+
+  const payload: any = { name };
+  if (created_by) payload.created_by = created_by;
+
+  const res = await supabase.from("inventory_groups").insert(payload).select("*").single();
+
+  if (res.error) throw res.error;
+  return res.data as InventoryGroup;
+}
+
+export async function updateInventoryGroup(groupId: string, patch: Partial<InventoryGroup>): Promise<InventoryGroup> {
+  const res = await supabase
+    .from("inventory_groups")
+    .update(patch)
+    .eq("id", groupId)
+    .select("*")
+    .single();
+
+  if (res.error) throw res.error;
+  return res.data as InventoryGroup;
+}
+
+export async function deleteInventoryGroup(groupId: string): Promise<void> {
+  // verwijder items eerst (cascade kan ook in DB)
+  const delItems = await supabase.from("inventory_items").delete().eq("group_id", groupId);
+  if (delItems.error) throw delItems.error;
+
+  const res = await supabase.from("inventory_groups").delete().eq("id", groupId);
+  if (res.error) throw res.error;
+}
+
+export async function getInventoryItemsForGroup(groupId: string): Promise<InventoryItem[]> {
+  const res = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: false });
+
+  if (res.error) throw res.error;
+  return (res.data ?? []) as InventoryItem[];
+}
+
+export async function addInventoryItem(payload: InventoryItemInsert): Promise<InventoryItem> {
+  // voeg created_by (indien beschikbaar) en last_modified_at toe
+  let created_by: string | null = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) created_by = data.user.id;
+  } catch (e) {
+    // ignore
+  }
+
+  const toInsert: any = { ...payload, last_modified_at: new Date().toISOString() };
+  if (created_by) toInsert.created_by = created_by;
+
+  const res = await supabase.from("inventory_items").insert(toInsert).select("*").single();
+
+  if (res.error) throw res.error;
+  return res.data as InventoryItem;
+}
+
+export async function updateInventoryItem(itemId: string, patch: Partial<InventoryItem>): Promise<InventoryItem> {
+  const toUpdate = { ...patch, last_modified_at: new Date().toISOString() } as any;
+  const res = await supabase.from("inventory_items").update(toUpdate).eq("id", itemId).select("*").single();
+
+  if (res.error) throw res.error;
+  return res.data as InventoryItem;
+}
+
+export async function deleteInventoryItem(itemId: string): Promise<void> {
+  const res = await supabase.from("inventory_items").delete().eq("id", itemId);
+  if (res.error) throw res.error;
+}
+
